@@ -13,3 +13,10 @@ states/
 # Optional
 .env
 .env.local
+
+# MacOS files
+.DS_Store
+
+# settings files
+.vscode/
+.idea/
