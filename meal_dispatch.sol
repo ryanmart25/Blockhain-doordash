@@ -9,4 +9,26 @@ contract MealDispatchDApp {
 		Completed
 	}
 
+	struct Store {
+		string name;
+		address accountAddress;
+	}
+
+	struct Customer {
+		string name;
+		address accountAddress;
+	}
+
+	struct Driver {
+		string name;
+		address accountAddress;
+	}
+
+	struct Order {
+		address customer;
+		address store;
+		address driver;
+		OrderStatus status;
+	}
+
 }
