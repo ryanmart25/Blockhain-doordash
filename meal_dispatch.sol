@@ -7,6 +7,9 @@ contract MealDispatchDApp {
 	enum OrderStatus {
 		Placed,
 		Accepted,
+		Cancel,
+		ReadyForPickup,
+		OnDelivery,	
 		Delivered,
 		Completed
 	}
@@ -35,7 +38,7 @@ contract MealDispatchDApp {
 		uint foodTip;
 		uint deliveryFee;
 		uint deliveryTip;
-		uint totalAmount;
+		//uint totalAmount;
 		OrderStatus status;
 	}
 
@@ -50,6 +53,17 @@ contract MealDispatchDApp {
 	// Mapping to link driver names from saved drivers (IPFS) to Driver structs
 	mapping(string => Driver) public drivers;
 
+	// Mapping to store orders by order ID
+	mapping(uint => Order) public Orders;
+
+	// Mapping to track which Ethereum address is used
+	mapping(address => bool) public addressUsed;
+
+	// keep track of orders(order Ids) for each customer, store, and driver
+	mapping(address => uint[]) public customerOrderIds;
+	mapping(address => uint[]) public driverOrderIds;
+	mapping(address => uint[]) public storeOrderIds;
+
 	// events
 	event OrderPlaced(address indexed customer, address indexed store, uint indexed orderId);
 	event OrderAccepted(address indexed store, uint indexed orderId);
@@ -60,6 +74,48 @@ contract MealDispatchDApp {
 	event DriverRegistered(string driverName, address indexed accountAddress);
 	event PaymentReceived(address indexed from, uint amount);
 
-	// constructor
-	constructor() {}
+	// order conunter
+	uint public  orderCounter;
+
+	// constructor runs when the contract is deployed - customer, store, driver registrations could go here
+	constructor() {
+		orderCounter = 0;
+	}
+
+	// *****************functions*******************
+
+	// place order function
+	function placeOrder(string memory _customerName, string memory _storeName, uint _foodTotal, uint _foodTip, uint _deliveryFee, uint _deliveryTip) external payable{
+		require(msg.value == (_foodTotal + _foodTip + _deliveryFee + _deliveryTip), "Insufficient payment for order");)
+		orderCounter++;
+		Orders[orderCounter] = Order({
+			customer: customers[_customerName].(msg.sender),
+		}
+
+		)
+
+
+
+
+	}
+
+	// accept order
+	function acceptOrder() external {
+
+	}
+
+	// cancel order
+	function cancelOrder() external {}
+
+	// mark order ready for pickup
+	function readyForPickup() external {}
+  
+	// pick up order
+	function pickedUpOrder() external {}
+
+	// deliver order
+	function orderDelivered() external {}
+
+	// complete order
+	function completeOrder() external {}
 }
