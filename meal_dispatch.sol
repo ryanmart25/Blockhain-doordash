@@ -50,13 +50,13 @@ contract MealDispatchDApp {
 	// Mappings to store entities and orders
 
 	//  storeAddress => isRegistered
-	mapping(address => bool) public stores;
-
-	//  customerAddress => isRegistered
-	mapping(address => bool) public customers;
+	mapping(address => bool) public storesIsRegistered;
 
 	//  driverAddress => isRegistered
-	mapping(address => bool) public drivers;
+	mapping(address => bool) public driversIsRegistered;
+
+	//  orderId => Order struct
+	mapping(uint => Order) public orders;
 
 	// Mapping to store orders by order ID (orderId => Order struct)
 	//mapping(uint => Order) public Orders;
@@ -65,13 +65,13 @@ contract MealDispatchDApp {
 	//mapping(address => bool) public addressUsed;
 
 	// keep track of orders(order Ids) for each customer, store, and driver
-	mapping(address => uint[]) public customerOrderIds;
-	mapping(address => uint[]) public driverOrderIds;
-	mapping(address => uint[]) public storeOrderIds;
+	mapping(address => uint[]) public customerOrders;
+	mapping(address => uint[]) public driverOrders;
+	mapping(address => uint[]) public storeOrders;
 
 	// events
 	event OrderPlaced(address indexed customer, address indexed store, uint indexed orderId, uint totalAmount, uint processingFee);
-	event OrderStateChanged(unit indexed orderId, OrderState status);
+	event OrderStateChanged(uint indexed orderId, OrderState status);
 	//event OrderAccepted(address indexed store, uint indexed orderId);
 	//event OrderDelivered(address indexed driver, uint indexed orderId);
 	//event OrderCompleted(address indexed customer, uint indexed orderId);	
@@ -96,19 +96,57 @@ contract MealDispatchDApp {
 
 	// *****************functions*******************
 
+	// register store function
+	function registerStore() external {}
+
+	// register driver function
+	function registerDriver() external {}
+
 	// place order function
-	function placeOrder(string memory _customerName, string memory _storeName, uint _foodTotal, uint _foodTip, uint _deliveryFee, uint _deliveryTip) external payable{
-		require(msg.value == (_foodTotal + _foodTip + _deliveryFee + _deliveryTip), "Insufficient payment for order");
+	function placeOrder(
+		address _storeAddress,
+		uint _foodTotal,
+		uint _foodTip,
+		uint _deliveryFee,
+		uint _deliveryTip,
+		uint _processingFee
+		) external payable returns (uint) {
+
+		// validate store is registered
+		require(storesIsRegistered[_storeAddress], "Store is not registered");
+
+		// validate payment amount
+		uint _totalAmount = _foodTotal + _foodTip + _deliveryFee + _deliveryTip + _processingFee;
+		require(msg.value == _totalAmount, "Insufficient payment for order");
+
 		orderCounter++;
-		Orders[orderCounter] = Order({
-			customer: customers[_customerName].accountAddress
-		}
 
-		)
+		// create order
+		orders[orderCounter] = Order({
+			customer: msg.sender,
+			store: _storeAddress,
+			driver: address(0),
+			foodTotal: _foodTotal,
+			foodTip: _foodTip,
+			deliveryFee: _deliveryFee,
+			deliveryTip: _deliveryTip,
+			processingFee: _processingFee,
+			totalAmount: _totalAmount,
+			status: OrderState.Placed
+		});
 
+		// add order to customer and store order lists
+		customerOrders[msg.sender].push(orderCounter);
+		storeOrders[_storeAddress].push(orderCounter);
 
+		// update total processing fees collected
+		totalProcessingFeesCollected += _processingFee;
 
+		// emit event
+		emit OrderPlaced(msg.sender, _storeAddress, orderCounter, _totalAmount,_processingFee);
+		emit OrderStateChanged(orderCounter, orders[orderCounter].status);
 
+		return orderCounter;
 	}
 
 	// accept order
