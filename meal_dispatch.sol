@@ -7,7 +7,6 @@ contract MealDispatchDApp {
 	enum OrderState {
 		Placed,
 		Accepted,
-		Cancel,
 		ReadyForPickup,
 		OnDelivery,	
 		Delivered,
@@ -47,7 +46,7 @@ contract MealDispatchDApp {
 	// platform owner who receives processing fees
 	address public owner;
 
-	// Mappings to store entities and orders
+	// *********** Mappings to store entities and orders ***********
 
 	//  storeAddress => isRegistered
 	mapping(address => bool) public storesIsRegistered;
@@ -69,7 +68,7 @@ contract MealDispatchDApp {
 	mapping(address => uint[]) public driverOrders;
 	mapping(address => uint[]) public storeOrders;
 
-	// events
+	// ***************** events *******************
 	event OrderPlaced(address indexed customer, address indexed store, uint indexed orderId, uint totalAmount, uint processingFee);
 	event OrderStateChanged(uint indexed orderId, OrderState status);
 	//event OrderAccepted(address indexed store, uint indexed orderId);
@@ -80,6 +79,8 @@ contract MealDispatchDApp {
 	event DriverRegistered(address indexed driverAddress);
 	//event PaymentReceived(address indexed from, uint amount);
 	event ProcessingFeeWithdrawn(address indexed owner, uint amount);
+
+
 
 	// order conunter
 	uint public  orderCounter;
@@ -94,13 +95,25 @@ contract MealDispatchDApp {
 		totalProcessingFeesCollected = 0;
 	}
 
-	// *****************functions*******************
+	// ***************** functions *******************
 
 	// register store function
-	function registerStore() external {}
+	function registerStore() external {
+
+		//validate store is not already registered
+		require(storesIsRegistered[msg.sender] == false, "Store is already registered");
+		storesIsRegistered[msg.sender] = true;
+		emit StoreRegistered(msg.sender);
+	}
 
 	// register driver function
-	function registerDriver() external {}
+	function registerDriver() external {
+
+		//validate driver is not already registered
+		require(driversIsRegistered[msg.sender] == false, "Driver is already registered");
+		driversIsRegistered[msg.sender] = true;
+		emit DriverRegistered(msg.sender);
+	}
 
 	// place order function
 	function placeOrder(
@@ -139,8 +152,8 @@ contract MealDispatchDApp {
 		customerOrders[msg.sender].push(orderCounter);
 		storeOrders[_storeAddress].push(orderCounter);
 
-		// update total processing fees collected
-		totalProcessingFeesCollected += _processingFee;
+		// update total processing fees collected+++++++++++++++++check later
+		//totalProcessingFeesCollected += _processingFee;
 
 		// emit event
 		emit OrderPlaced(msg.sender, _storeAddress, orderCounter, _totalAmount,_processingFee);
@@ -149,13 +162,67 @@ contract MealDispatchDApp {
 		return orderCounter;
 	}
 
-	// accept order
-	function acceptOrder() external {
+	// accept order function
+	function acceptOrder(uint _orderId) external {
 
+		Order storage order = orders[_orderId];
+
+		// validate store is registered
+		require(storesIsRegistered[msg.sender], "Store is not registered");
+
+		// validate order is in Placed state
+		require(order.status == OrderState.Placed, "Order is not in Placed state");
+
+		// validate msg.sender is the store for the order
+		require(order.store == msg.sender, "Order does not belong to this store");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+		
+		// update order status to Accepted
+		order.status = OrderState.Accepted;
+
+		// emit event
+		emit OrderStateChanged(_orderId, order.status);
 	}
 
 	// cancel order
-	function cancelOrder() external {}
+	function cancelOrder(uint _orderId) external {
+		// get order
+		Order storage order = orders[_orderId];
+
+		// validate order is not accepted yet
+		require(order.status == OrderState.Placed, "Order cannot be canceled at this stage");
+
+		// validate msg.sender is the customer who placed the order or the store can cancel the order 
+		require(order.customer == msg.sender || order.store == msg.sender, "Not authorized to cancel this order");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+
+		// update order status to Canceled
+		order.status = OrderState.Canceled;
+
+		// define who is responsible for system fees on cancellation
+		uint refundAmount = order.totalAmount - ((order.processingFee)/2);
+
+		// refund 
+		if (msg.sender == order.customer) {
+			// if customer cancels they incur half the processing fee
+			payable(order.customer).transfer(refundAmount);
+			totalProcessingFeesCollected += (order.processingFee)/2;
+			//payable(owner).transfer((order.processingFee)/2);
+		} else if (msg.sender == order.store) {
+			payable(order.customer).transfer(order.totalAmount);
+			// store cancelation does not incur a processing fee in the current model
+			// in future system will have cancellation fees for stores by forcing them to deposite a small amount when registering if a store cancels more then deposited amount they will be removed from registerd stores and have to re-register for accepting orders. In this case the store will loose all not accepted orders and customers will be refunded in full.
+		}
+
+
+
+
+		
+	}
 
 	// mark order ready for pickup
 	function readyForPickup() external {}
