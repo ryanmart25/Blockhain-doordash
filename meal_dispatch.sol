@@ -79,6 +79,17 @@ contract MealDispatchDApp {
 	event DriverRegistered(address indexed driverAddress);
 	//event PaymentReceived(address indexed from, uint amount);
 	event ProcessingFeeWithdrawn(address indexed owner, uint amount);
+	// envent withdrawn amount and contract balance
+	event ProcessingFeeWithdrawn(address indexed owner, uint amount, uint contractBalance);
+
+	// ***************** Modifiers *******************
+	// make sure only owner can call withdraw function
+	modifier onlyOwner() {
+		require(msg.sender == owner, "Only owner can call this function");
+		_; // continue executing the rest of the function
+	}
+
+
 
 
 
@@ -329,4 +340,43 @@ contract MealDispatchDApp {
 		// emit event
 		emit OrderStateChanged(_orderId, order.status);
 	}
+
+	// owner withdraw processing fees
+	function withdrawProcessingFees() external onlyOwner {
+		// validate msg.sender is owner
+		require(msg.sender == owner, "Only owner can withdraw processing fees");
+
+		// validate there are processing fees to withdraw
+		require(totalProcessingFeesCollected > 0, "No processing fees to withdraw");
+
+		uint amount = totalProcessingFeesCollected;
+		totalProcessingFeesCollected = 0;
+
+		// transfer processing fees to owner
+		payable(owner).transfer(amount);
+
+		// emit event
+		emit ProcessingFeeWithdrawn(owner, amount, address(this).balance);
+	}
+
+	// ************** view functions **************
+
+	//check store registration
+
+	// check driver registration
+
+	//check store orders
+
+	// check customer orders
+
+	// check available orders for delivery
+
+	// check driver orders
+
+	// check store orders by status
+
+	// check contract balance
+
+	// check processing fees collected
+	
 }
