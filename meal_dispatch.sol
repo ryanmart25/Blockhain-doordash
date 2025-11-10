@@ -218,21 +218,115 @@ contract MealDispatchDApp {
 			// in future system will have cancellation fees for stores by forcing them to deposite a small amount when registering if a store cancels more then deposited amount they will be removed from registerd stores and have to re-register for accepting orders. In this case the store will loose all not accepted orders and customers will be refunded in full.
 		}
 
-
-
-
-		
+		// emit event
+		emit OrderStateChanged(_orderId, order.status);
 	}
 
 	// mark order ready for pickup
-	function readyForPickup() external {}
+	function readyForPickup(uint _orderId) external {
+
+		// get order
+		Order storage order = orders[_orderId];
+
+		// validate store is registered
+		require(storesIsRegistered[msg.sender], "Store is not registered");
+
+		// validate order is in Placed state
+		require(order.status == OrderState.Accepted, "Order is not in Accepted state");
+
+		// validate msg.sender is the store for the order
+		require(order.store == msg.sender, "Order does not belong to this store");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+
+		// update order status to ReadyForPickup
+		order.status = OrderState.ReadyForPickup;
+
+		//emit event
+		emit OrderStateChanged(_orderId, order.status);
+    }
+	
   
 	// pick up order
-	function pickedUpOrder() external {}
+	function pickedUpOrder(uint _orderId) external {
+
+		// get order
+		Order storage order = orders[_orderId];
+
+		// validate driver is registered
+		require(driversIsRegistered[msg.sender], "Driver is not registered");
+
+		// validate order is in ReadyForPickup state
+		require(order.status == OrderState.ReadyForPickup, "Order is not in ReadyForPickup state");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+
+		// validate order does not have a driver assigned yet
+		require(order.driver == address(0), "Order already has a driver assigned");
+
+		// assign driver to order
+		order.driver = msg.sender;
+
+		// add order to driver order list
+		driverOrders[msg.sender].push(_orderId);
+
+		// update order status to OnDelivery
+		order.status = OrderState.OnDelivery;
+
+		// emit event
+		emit OrderStateChanged(_orderId, order.status);
+	}
 
 	// deliver order
-	function orderDelivered() external {}
+	function orderDelivered(uint _orderId) external {
+		// get order
+		Order storage order = orders[_orderId];
+
+		// validate driver is registered
+		require(driversIsRegistered[msg.sender], "Driver is not registered");
+
+		// validate order is in OnDelivery state
+		require(order.status == OrderState.OnDelivery, "Order is not in OnDelivery state");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+
+		// validate msg.sender is the driver for the order
+		require(order.driver == msg.sender, "Order does not belong to this driver");
+
+		// update order status to Delivered
+		order.status = OrderState.Delivered;
+
+		// emit event
+		emit OrderStateChanged(_orderId, order.status);
+	}
 
 	// complete order
-	function completeOrder() external {}
+	function confirmOrderDelivered(uint _orderId) external {
+		// get order
+		Order storage order = orders[_orderId];
+
+		// validate order is in Delivered state
+		require(order.status == OrderState.Delivered, "Order is not in Delivered state");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+
+		// validate msg.sender is the customer for the order
+		require(order.customer == msg.sender, "Order does not belong to this customer");
+
+		// update order status to Completed
+		order.status = OrderState.Completed;
+
+		// distribute payments
+		payable(order.store).transfer(order.foodTotal + order.foodTip);
+		payable(order.driver).transfer(order.deliveryFee + order.deliveryTip);
+		totalProcessingFeesCollected += order.processingFee;
+		//payable(owner).transfer(order.processingFee);
+
+		// emit event
+		emit OrderStateChanged(_orderId, order.status);
+	}
 }
