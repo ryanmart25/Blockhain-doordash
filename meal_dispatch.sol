@@ -77,10 +77,17 @@ contract MealDispatchDApp {
 	event StoreRegistered(address indexed storeAddress);
 	//event CustomerRegistered(string customerName, address indexed accountAddress);
 	event DriverRegistered(address indexed driverAddress);
-	//event PaymentReceived(address indexed from, uint amount);
-	event ProcessingFeeWithdrawn(address indexed owner, uint amount);
+	event PaymentReceived(address indexed from, address indexed to, uint amount);
+	//event ProcessingFeeWithdrawn(address indexed owner, uint amount);
+	// envent withdrawn amount and contract balance
+	event ProcessingFeeWithdrawn(address indexed owner, uint amount, uint contractBalance);
 
-
+	// ***************** Modifiers *******************
+	// make sure only owner can call withdraw function
+	modifier onlyOwner() {
+		require(msg.sender == owner, "Only owner can call this function");
+		_; // continue executing the rest of the function
+	}
 
 	// order conunter
 	uint public  orderCounter;
@@ -218,21 +225,217 @@ contract MealDispatchDApp {
 			// in future system will have cancellation fees for stores by forcing them to deposite a small amount when registering if a store cancels more then deposited amount they will be removed from registerd stores and have to re-register for accepting orders. In this case the store will loose all not accepted orders and customers will be refunded in full.
 		}
 
-
-
-
-		
+		// emit event
+		emit OrderStateChanged(_orderId, order.status);
 	}
 
 	// mark order ready for pickup
-	function readyForPickup() external {}
+	function readyForPickup(uint _orderId) external {
+
+		// get order
+		Order storage order = orders[_orderId];
+
+		// validate store is registered
+		require(storesIsRegistered[msg.sender], "Store is not registered");
+
+		// validate order is in Placed state
+		require(order.status == OrderState.Accepted, "Order is not in Accepted state");
+
+		// validate msg.sender is the store for the order
+		require(order.store == msg.sender, "Order does not belong to this store");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+
+		// update order status to ReadyForPickup
+		order.status = OrderState.ReadyForPickup;
+
+		//emit event
+		emit OrderStateChanged(_orderId, order.status);
+    }
+	
   
 	// pick up order
-	function pickedUpOrder() external {}
+	function pickedUpOrder(uint _orderId) external {
+
+		// get order
+		Order storage order = orders[_orderId];
+
+		// validate driver is registered
+		require(driversIsRegistered[msg.sender], "Driver is not registered");
+
+		// validate order is in ReadyForPickup state
+		require(order.status == OrderState.ReadyForPickup, "Order is not in ReadyForPickup state");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+
+		// validate order does not have a driver assigned yet
+		require(order.driver == address(0), "Order already has a driver assigned");
+
+		// assign driver to order
+		order.driver = msg.sender;
+
+		// add order to driver order list
+		driverOrders[msg.sender].push(_orderId);
+
+		// update order status to OnDelivery
+		order.status = OrderState.OnDelivery;
+
+		// emit event
+		emit OrderStateChanged(_orderId, order.status);
+	}
 
 	// deliver order
-	function orderDelivered() external {}
+	function orderDelivered(uint _orderId) external {
+		// get order
+		Order storage order = orders[_orderId];
+
+		// validate driver is registered
+		require(driversIsRegistered[msg.sender], "Driver is not registered");
+
+		// validate order is in OnDelivery state
+		require(order.status == OrderState.OnDelivery, "Order is not in OnDelivery state");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+
+		// validate msg.sender is the driver for the order
+		require(order.driver == msg.sender, "Order does not belong to this driver");
+
+		// update order status to Delivered
+		order.status = OrderState.Delivered;
+
+		// emit event
+		emit OrderStateChanged(_orderId, order.status);
+	}
 
 	// complete order
-	function completeOrder() external {}
+	function confirmOrderDelivered(uint _orderId) external {
+		// get order
+		Order storage order = orders[_orderId];
+
+		// validate order is in Delivered state
+		require(order.status == OrderState.Delivered, "Order is not in Delivered state");
+
+		// validate orderId is valid
+		require(_orderId > 0 && _orderId <= orderCounter, "Invalid order ID");
+
+		// validate msg.sender is the customer for the order
+		require(order.customer == msg.sender, "Order does not belong to this customer");
+
+		// update order status to Completed
+		order.status = OrderState.Completed;
+
+		// distribute payments
+		payable(order.store).transfer(order.foodTotal + order.foodTip);
+		payable(order.driver).transfer(order.deliveryFee + order.deliveryTip);
+		totalProcessingFeesCollected += order.processingFee;
+		//payable(owner).transfer(order.processingFee);
+
+		// emit event
+		emit PaymentReceived(msg.sender, order.store, order.foodTotal + order.foodTip);
+		emit PaymentReceived(msg.sender, order.driver, order.deliveryFee + order.deliveryTip);
+		emit OrderStateChanged(_orderId, order.status);
+	}
+
+	// owner withdraw processing fees only owner can call
+	function withdrawProcessingFees() external onlyOwner {
+		// validate msg.sender is owner
+		require(msg.sender == owner, "Only owner can withdraw processing fees");
+
+		// validate there are processing fees to withdraw
+		require(totalProcessingFeesCollected > 0, "No processing fees to withdraw");
+
+		uint amount = totalProcessingFeesCollected;
+		totalProcessingFeesCollected = 0;
+
+		// transfer processing fees to owner
+		payable(owner).transfer(amount);
+
+		// emit event
+		emit ProcessingFeeWithdrawn(owner, amount, address(this).balance);
+	}
+
+	// ************** view functions **************
+
+	//check store registration
+	function isStoreRegistered(address _storeAddress) external view returns (bool) {
+		return storesIsRegistered[_storeAddress];
+	}
+
+	// check driver registration
+	function isDriverRegistered(address _driverAddress) external view returns (bool) {
+		return driversIsRegistered[_driverAddress];
+	}
+
+	//check store orders
+	function getStoreOrders(address _storeAddress) external view returns (uint[] memory) {
+		return storeOrders[_storeAddress];
+	}
+
+	// check customer orders
+	function getCustomerOrders(address _customerAddress) external view returns (uint[] memory) {
+		return customerOrders[_customerAddress];
+	}
+
+	// check available orders for delivery
+	function getAvailableOrderIdsForDelivery() external view returns (uint[] memory) {
+		// count matching orders to allocate fixed-size memory array
+		uint count = 0;
+		for (uint i = 1; i <= orderCounter; i++) {
+			if (orders[i].status == OrderState.ReadyForPickup) {
+				count++;
+			}
+		}
+		uint[] memory tempOrderIds = new uint[](count);
+		uint idx = 0;
+		for (uint i = 1; i <= orderCounter; i++) {
+			if (orders[i].status == OrderState.ReadyForPickup) {
+				tempOrderIds[idx] = i;
+				idx++;
+			}
+		}
+		return tempOrderIds;
+	}
+
+
+	// check store orders by status
+	function getStoreOrdersIdsByStatus(address _storeAddress, OrderState _orderState) external view returns (uint[] memory) {
+
+		// get the store order Ids
+		// allOrderIds contains all order IDs for the given store
+		uint[] memory allOrderIds = storeOrders[_storeAddress];
+		
+		// check all the store orders (that you have the id of them) state and if the state matches add to array
+		// first find the size of the result array.
+		uint count = 0;
+		for (uint i = 0; i < allOrderIds.length; i++) {
+			if (orders[allOrderIds[i]].status == _orderState) {
+				count++;
+			}
+		}
+
+		uint[] memory result = new uint[](count);
+		uint idx = 0;
+
+		for (uint i = 0; i < allOrderIds.length; i++) {
+			if (orders[allOrderIds[i]].status == _orderState) {
+				result[idx] = allOrderIds[i];
+				idx++;
+			}
+		}	
+		return result;
+	}
+
+	// check contract balance
+	function getContractBalance() external view returns (uint) {
+		return address(this).balance;
+	}
+
+	// check processing fees collected
+	function getProcessingFeesCollected() external view returns (uint) {
+		return totalProcessingFeesCollected;
+	}
+
 }
