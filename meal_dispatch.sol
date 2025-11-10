@@ -77,8 +77,8 @@ contract MealDispatchDApp {
 	event StoreRegistered(address indexed storeAddress);
 	//event CustomerRegistered(string customerName, address indexed accountAddress);
 	event DriverRegistered(address indexed driverAddress);
-	//event PaymentReceived(address indexed from, uint amount);
-	event ProcessingFeeWithdrawn(address indexed owner, uint amount);
+	event PaymentReceived(address indexed from, address indexed to, uint amount);
+	//event ProcessingFeeWithdrawn(address indexed owner, uint amount);
 	// envent withdrawn amount and contract balance
 	event ProcessingFeeWithdrawn(address indexed owner, uint amount, uint contractBalance);
 
@@ -88,10 +88,6 @@ contract MealDispatchDApp {
 		require(msg.sender == owner, "Only owner can call this function");
 		_; // continue executing the rest of the function
 	}
-
-
-
-
 
 	// order conunter
 	uint public  orderCounter;
@@ -338,10 +334,12 @@ contract MealDispatchDApp {
 		//payable(owner).transfer(order.processingFee);
 
 		// emit event
+		emit PaymentReceived(msg.sender, order.store, order.foodTotal + order.foodTip);
+		emit PaymentReceived(msg.sender, order.driver, order.deliveryFee + order.deliveryTip);
 		emit OrderStateChanged(_orderId, order.status);
 	}
 
-	// owner withdraw processing fees
+	// owner withdraw processing fees only owner can call
 	function withdrawProcessingFees() external onlyOwner {
 		// validate msg.sender is owner
 		require(msg.sender == owner, "Only owner can withdraw processing fees");
@@ -362,21 +360,82 @@ contract MealDispatchDApp {
 	// ************** view functions **************
 
 	//check store registration
+	function isStoreRegistered(address _storeAddress) external view returns (bool) {
+		return storesIsRegistered[_storeAddress];
+	}
 
 	// check driver registration
+	function isDriverRegistered(address _driverAddress) external view returns (bool) {
+		return driversIsRegistered[_driverAddress];
+	}
 
 	//check store orders
+	function getStoreOrders(address _storeAddress) external view returns (uint[] memory) {
+		return storeOrders[_storeAddress];
+	}
 
 	// check customer orders
+	function getCustomerOrders(address _customerAddress) external view returns (uint[] memory) {
+		return customerOrders[_customerAddress];
+	}
 
 	// check available orders for delivery
+	function getAvailableOrderIdsForDelivery() external view returns (uint[] memory) {
+		// count matching orders to allocate fixed-size memory array
+		uint count = 0;
+		for (uint i = 1; i <= orderCounter; i++) {
+			if (orders[i].status == OrderState.ReadyForPickup) {
+				count++;
+			}
+		}
+		uint[] memory tempOrderIds = new uint[](count);
+		uint idx = 0;
+		for (uint i = 1; i <= orderCounter; i++) {
+			if (orders[i].status == OrderState.ReadyForPickup) {
+				tempOrderIds[idx] = i;
+				idx++;
+			}
+		}
+		return tempOrderIds;
+	}
 
-	// check driver orders
 
 	// check store orders by status
+	function getStoreOrdersIdsByStatus(address _storeAddress, OrderState _orderState) external view returns (uint[] memory) {
+
+		// get the store order Ids
+		// allOrderIds contains all order IDs for the given store
+		uint[] memory allOrderIds = storeOrders[_storeAddress];
+		
+		// check all the store orders (that you have the id of them) state and if the state matches add to array
+		// first find the size of the result array.
+		uint count = 0;
+		for (uint i = 0; i < allOrderIds.length; i++) {
+			if (orders[allOrderIds[i]].status == _orderState) {
+				count++;
+			}
+		}
+
+		uint[] memory result = new uint[](count);
+		uint idx = 0;
+
+		for (uint i = 0; i < allOrderIds.length; i++) {
+			if (orders[allOrderIds[i]].status == _orderState) {
+				result[idx] = allOrderIds[i];
+				idx++;
+			}
+		}	
+		return result;
+	}
 
 	// check contract balance
+	function getContractBalance() external view returns (uint) {
+		return address(this).balance;
+	}
 
 	// check processing fees collected
-	
+	function getProcessingFeesCollected() external view returns (uint) {
+		return totalProcessingFeesCollected;
+	}
+
 }

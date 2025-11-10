@@ -20,3 +20,6 @@ states/
 # settings files
 .vscode/
 .idea/
+
+# wake extension files
+.wake/
