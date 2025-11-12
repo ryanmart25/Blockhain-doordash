@@ -1,0 +1,25 @@
+:root { --g:#e5e5e5; --muted:#666; --ok:#057a55; --warn:#ab4e19; }
+body { font-family: ui-sans-serif, system-ui; margin: 0; background:#fafafa; color:#111; }
+.topbar { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#fff; border-bottom:1px solid var(--g); position:sticky; top:0; z-index:1; }
+.brand { font-weight:600; }
+.wallet button { margin-right:8px; }
+.card { background:#fff; border:1px solid var(--g); border-radius:12px; padding:16px; margin:16px; }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+input, button, select { padding:8px 10px; border-radius:8px; border:1px solid var(--g); background:#fff; }
+button { cursor:pointer; }
+.muted { color:var(--muted); }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.pill { padding:2px 8px; border-radius:999px; background:#f0f0f0; }
+.mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+.pre { background:#f6f6f6; padding:12px; border-radius:8px; overflow:auto; }
+.grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit,minmax(340px,1fr)); }
+.section { margin-top:8px; }
+.tabs { display:flex; gap:4px; padding:0 16px; }
+.tab { background:#fff; border:1px solid var(--g); border-bottom:none; border-radius:12px 12px 0 0; padding:8px 12px; cursor:pointer; }
+.tab.active { background:#fefefe; }
+.tabpanel { display:none; }
+.tabpanel.active { display:block; }
+#menuList .menu-item, #ownerMenuList .menu-row, #cartList .cart-row, .order-row { display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed #ddd; padding:8px 0; }
+.order-actions button { margin-left:6px; }
+.badge { padding:2px 6px; border-radius:6px; background:#efefef; }
