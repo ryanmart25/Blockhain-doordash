@@ -1,0 +1,20 @@
+{
+  "name": "project196d",
+  "version": "1.0.0",
+  "description": "Project for csc196d",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanmart25/Blockhain-doordash.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ryanmart25/Blockhain-doordash/issues"
+  },
+  "homepage": "https://github.com/ryanmart25/Blockhain-doordash#readme"
+}
