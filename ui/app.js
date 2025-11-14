@@ -2,7 +2,7 @@
 import abi from './abi.json' assert { type: 'json' };
 
 // paste your deployed address here (or enter in UI)
-let CONTRACT_ADDRESS = '';
+let CONTRACT_ADDRESS = '0xe1293443887FBAE508a06e00A38D4964A066D865';
 
 const STATUS = ["Placed","Accepted","ReadyForPickup","OnDelivery","Delivered","Completed","Canceled"];
 
