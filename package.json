@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/ryanmart25/Blockhain-doordash/issues"
   },
-  "homepage": "https://github.com/ryanmart25/Blockhain-doordash#readme"
+  "homepage": "https://github.com/ryanmart25/Blockhain-doordash#readme",
+  "dependencies": {
+    "web3": "^4.16.0"
+  }
 }
