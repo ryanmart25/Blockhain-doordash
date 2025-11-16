@@ -665,5 +665,12 @@ document.addEventListener('DOMContentLoaded', () => {
             setStatus(e.message); 
           }
         });
+
+        // global error handler
+        window.addEventListener('error', (event) => {
+          console.error('GLOBAL ERROR:', event.message);
+          setStatus(`Unexpected error: ${event.message}`);
+        });
+        
   });
     
