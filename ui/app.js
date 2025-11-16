@@ -19,11 +19,11 @@ const sumWei = (...xs) => xs.reduce((a, b) => a + asWei(b), 0n);
 
 //Run after DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  
   console.log('DEBUG: app.js loaded and DOM ready!');
 
   // Tabs: .tab buttons switch .tabpanel sections by data-tab -> #id
   function initTabs() {
+    console.log('DEBUG: Initializing tavs');
     const tabs = document.querySelectorAll('.tab');
     const panels = document.querySelectorAll('.tabpanel');
     
@@ -38,13 +38,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const initial = document.querySelector('.tab.active')?.dataset.tab || 'customer';
     activate(initial);
   }
-  
+  initTabs();
+
   // dom needs to exist before i try to do document queries
+ 
+  /*
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initTabs);
   } else {
     initTabs();
   }
+  */
+
   // tabs
   document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -55,16 +60,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   
-  function setStatus(msg) { set('status', msg); }
+  function setStatus(msg) { 
+    set('status', msg);
+    console.log(`DEBUG: Status updated: ${msg}`);  
+  }
   function logEvent(obj) {
     const prev = $('events').textContent || "";
     $('events').textContent = JSON.stringify(obj, null, 2) + "\n" + prev;
+    console.log('DEBUG: Event logged:', obj);
   }
-  const isAddr = (a) => /^0x[a-fA-F0-9]{40}$/.test(a);
-  
+
+  /*
   function asWei(n) { try { return BigInt(n || 0); } catch { return 0n; } }
   function sumWei(...xs) { return xs.reduce((a,b)=>a+asWei(b), 0n); }
-  
+  */
+
+  // load abi
+  async function loadABI(){
+    console.log('DEBUG: Loading ABI from abi.json');
+    try {
+      const response = await fetch('./abi.json');
+      if(!response.ok) throw new Error(`Failed to fetch abi.json (status ${response.status})`);
+      abi = await response.json();
+      console.log('DEBUG: ABI loaded successfully');
+    } catch(error) {
+      console.log('ERROR: ABI load failed:', error);
+      setStatus(`Error loading ABI: ${error.message}`);
+      throw error;
+    }
+  }
+
   async function ensureConnected() {
     if (!window.ethereum) throw new Error('Install MetaMask');
     if (!accounts.length) {
@@ -76,8 +101,29 @@ document.addEventListener('DOMContentLoaded', () => {
       window.ethereum.on('accountsChanged', (accs) => { accounts = accs; set('acct', accounts[0] || 'Not connected'); });
       window.ethereum.on('chainChanged', () => window.location.reload());
     }
+     console.log('DEBUG: Connected to MetaMask, account:', accounts[0]);
   }
   
+  async function loadContract() {
+    console.log('DEBUG: loadContract started');
+    try {
+      await ensureConnected();
+      await loadABI(); 
+      CONTRACT_ADDRESS = $('contractAddr').value.trim();
+      if (!isAddr(CONTRACT_ADDRESS)) throw new Error('Invalid contract address');
+      contract = new web3.eth.Contract(abi, CONTRACT_ADDRESS);
+      subscribeEvents();
+      await refreshGlobals();
+      await refreshBadges();
+      setStatus('Contract loaded');
+      console.log('DEBUG: Contract loaded at:', CONTRACT_ADDRESS);
+    } catch (e) {
+      console.error('ERROR in loadContract:', e);
+      setStatus(e.message);
+    }
+  }
+
+  /*
   async function loadContract() {
     CONTRACT_ADDRESS = $('contractAddr').value.trim();
     if (!isAddr(CONTRACT_ADDRESS)) throw new Error('Invalid contract address');
@@ -86,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await refreshGlobals();
     await refreshBadges();
   }
+  */  
   
   // globals
   async function refreshGlobals() {
@@ -150,7 +197,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const driverTag = $('driverRegState');
       driverTag.textContent = d ? 'registered' : 'not registered';
       driverTag.className = `pill ${d ? 'ok' : 'warn'}`;
-    } catch {}
+      console.log('DEBUG: Badges refreshed');
+    } catch (e){
+      console.error('ERROR in refreshBadges:', e);
+    }
   }
   
   /////////////////////////////
@@ -170,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     save(addr, store, rows){ localStorage.setItem(this.key(addr,store), JSON.stringify(rows)); },
     clear(addr, store){ localStorage.removeItem(this.key(addr,store)); }
   };
-  
+
   let currentCustomerStore = '';
   let cartRows = [];
   
@@ -183,10 +233,14 @@ document.addEventListener('DOMContentLoaded', () => {
       renderMenu(store);
       cartRows = Cart.load(accounts[0], store);
       renderCart();
-    } catch(e){ setStatus(e.message); }
+    } catch(e){ 
+      console.error('ERROR in loadMenuBtn:', e);
+      setStatus(e.message); 
+    }
   });
   
   function renderMenu(store) {
+    console.log('DEBUG: Rendering menu from the store:', store);
     const items = Menu.load(store);
     if (!items.length) {
       setHTML($('menuList'), `<div class="muted">No menu yet for this store. Ask the owner to create one in the Restaurant Owner tab.</div>`);
@@ -218,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function renderCart() {
+    console.log('DEBUG: Rendering cart');
     if (!currentCustomerStore) return;
     if (!cartRows.length) {
       setHTML($('cartList'), `<div class="muted">Cart is empty</div>`);
@@ -236,9 +291,18 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
       `).join(''));
-      document.querySelectorAll('.decBtn').forEach(b=>b.addEventListener('click',()=>{ const i=Number(b.dataset.i); if(cartRows[i].qty>1) cartRows[i].qty--; else cartRows.splice(i,1); Cart.save(accounts[0], currentCustomerStore, cartRows); renderCart(); }));
-      document.querySelectorAll('.incBtn').forEach(b=>b.addEventListener('click',()=>{ const i=Number(b.dataset.i); cartRows[i].qty++; Cart.save(accounts[0], currentCustomerStore, cartRows); renderCart(); }));
-      document.querySelectorAll('.rmBtn').forEach(b=>b.addEventListener('click',()=>{ const i=Number(b.dataset.i); cartRows.splice(i,1); Cart.save(accounts[0], currentCustomerStore, cartRows); renderCart(); }));
+      document.querySelectorAll('.decBtn').forEach(b=>b.addEventListener('click',()=>{ 
+         console.log('DEBUG: Decrease qty for cart item:', b.dataset.i); 
+        const i=Number(b.dataset.i); if(cartRows[i].qty>1) cartRows[i].qty--; else cartRows.splice(i,1); Cart.save(accounts[0], currentCustomerStore, cartRows); renderCart(); 
+      }));
+      document.querySelectorAll('.incBtn').forEach(b=>b.addEventListener('click',()=>{ 
+        console.log('DEBUG: Increase qty for cart item:', b.dataset.i); 
+        const i=Number(b.dataset.i); cartRows[i].qty++; Cart.save(accounts[0], currentCustomerStore, cartRows); renderCart(); 
+      }));
+      document.querySelectorAll('.rmBtn').forEach(b=>b.addEventListener('click',()=>{
+        console.log('DEBUG: Remove cart item:', b.dataset.i);  
+        const i=Number(b.dataset.i); cartRows.splice(i,1); Cart.save(accounts[0], currentCustomerStore, cartRows); renderCart(); 
+      }));
     }
     const subtotal = cartRows.reduce((a,r)=>a + asWei(r.price)*BigInt(r.qty), 0n);
 
@@ -247,13 +311,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   $('clearCartBtn').addEventListener('click', () => {
+    console.log('DEBUG: clearCartBtn clicked');
     cartRows = [];
     if (currentCustomerStore && accounts[0]) Cart.clear(accounts[0], currentCustomerStore);
     renderCart();
   });
   
   ['tipRestaurant','tipDriver','deliveryFee','processingFee'].forEach(id => {
-    $(id).addEventListener('input', recomputeTotal);
+    $(id).addEventListener('input', () => {
+      console.log(`DEBUG: Input changed for ${id}`);
+      recomputeTotal();
+    });
   });
   
   function recomputeTotal() {
@@ -267,6 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   $('checkoutBtn').addEventListener('click', async () => {
+    console.log('DEBUG: checkoutBtn clicked');
     try {
       await ensureConnected();
       if (!contract) throw new Error('load contract first');
@@ -289,6 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const ev = tx.events?.OrderPlaced?.returnValues;
       $('checkoutMsg').textContent = ev ? `Order placed successfully. orderId ${ev.orderId}` : 'Order placed successfully.';
       setStatus(`placed in block ${tx.blockNumber}`);
+      console.log('DEBUG: Order placed successfully');
       
       // optional: clear cart after success
       cartRows = [];
@@ -296,10 +366,16 @@ document.addEventListener('DOMContentLoaded', () => {
       renderCart();
       await refreshMyOrders();
       await refreshGlobals();
-    } catch(e){ setStatus(e.message); }
+    } catch(e){ 
+      console.error('ERROR in checkout:', e);
+      setStatus(e.message); 
+    }
   });
   
-  $('refreshMyOrdersBtn').addEventListener('click', refreshMyOrders);
+  $('refreshMyOrdersBtn').addEventListener('click', () => {
+    console.log('DEBUG: refreshMyOrdersBtn clicked');
+    refreshMyOrders();
+  });
   async function refreshMyOrders() {
     try {
       await ensureConnected();
@@ -324,8 +400,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }));
         
         setHTML($('myOrders'), cards.join('') || `<div class="muted">No orders yet.</div>`);
-      } catch(e){ setStatus(e.message); }
-    
+        console.log('DEBUG: My orders refreshed');
+      } catch(e){ 
+        console.error('ERROR in refreshMyOrders:', e);
+        setStatus(e.message); 
+      }
     }
     
     ////////////////////////////////////////
@@ -333,21 +412,28 @@ document.addEventListener('DOMContentLoaded', () => {
     //////////////////////////////////////////
     
     $('registerStoreBtn').addEventListener('click', async () => {
+      console.log('DEBUG: registerStoreBtn clicked');
       try {
         await ensureConnected();
         const tx = await contract.methods.registerStore().send({ from: accounts[0] });
         setStatus(`store registered in block ${tx.blockNumber}`);
         await refreshBadges();
-      } catch(e){ setStatus(e.message); }
+        console.log('DEBUG: Store registered');
+      } catch(e){
+        console.error('ERROR in registerStore:', e);
+        setStatus(e.message); 
+      }
     });
     
     $('loadOwnerMenuBtn').addEventListener('click', () => {
+      console.log('DEBUG: loadOwnerMenuBtn clicked');
       const a = $('ownerStoreAddr').value.trim();
       if (!isAddr(a)) { setStatus('enter a valid store address'); return; }
       renderOwnerMenu(a);
     });
     
     $('addMenuItemBtn').addEventListener('click', () => {
+      console.log('DEBUG: addMenuItemBtn clicked');
       const addr = $('ownerStoreAddr').value.trim();
       if (!isAddr(addr)) { setStatus('enter your store address'); return; }
       const name = $('menuItemName').value.trim();
@@ -361,12 +447,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     $('saveMenuBtn').addEventListener('click', () => {
+      console.log('DEBUG: saveMenuBtn clicked');
       const addr = $('ownerStoreAddr').value.trim();
       if (!isAddr(addr)) { setStatus('enter your store address'); return; }
       setStatus('menu saved');
     });
     
     function renderOwnerMenu(addr) {
+      console.log('DEBUG: Rendering owner menu for:', addr);
       const items = Menu.load(addr);
       if (!items.length) {
         setHTML($('ownerMenuList'), `<div class="muted">No items yet.</div>`);
@@ -386,9 +474,11 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         `).join(''));
         document.querySelectorAll('.delItemBtn').forEach(b => b.addEventListener('click', () => {
+          console.log('DEBUG: Delete menu item:', b.dataset.i);
           const i = Number(b.dataset.i); const items = Menu.load(addr); items.splice(i,1); Menu.save(addr, items); renderOwnerMenu(addr);
         }));
         document.querySelectorAll('.editItemBtn').forEach(b => b.addEventListener('click', () => {
+          console.log('DEBUG: Edit menu item:', b.dataset.i);
           const i = Number(b.dataset.i); const items = Menu.load(addr);
           const newName = prompt('New name', items[i].name) ?? items[i].name;
           const newPrice = prompt('New price wei', items[i].price) ?? items[i].price;
@@ -396,140 +486,184 @@ document.addEventListener('DOMContentLoaded', () => {
           Menu.save(addr, items); renderOwnerMenu(addr);
         }));
       }
-            // store order lists by status
-            const storeStatusBtns = [
-              ['storeOrdersPlacedBtn', 0],
-              ['storeOrdersAcceptedBtn', 1],
-              ['storeOrdersReadyBtn', 2],
-              ['storeOrdersOnDeliveryBtn', 3],
-              ['storeOrdersDeliveredBtn', 4],
-              ['storeOrdersCompletedBtn', 5],
-              ['storeOrdersCanceledBtn', 6],
-            ];
-            storeStatusBtns.forEach(([id, st]) => {
-              $(id).addEventListener('click', async () => {
-                try {
-                  await ensureConnected();
-                  const ids = await contract.methods.getStoreOrdersIdsByStatus(accounts[0], st).call();
-                  const rows = await Promise.all(ids.map(async (oid) => {
-                    const o = await contract.methods.orders(oid).call();
-                    return `
-                      <div class="order-row">
-                        <div>
-                          <div>#${oid} • ${STATUS[Number(o.status)]}</div>
-                          <div class="muted mono">customer ${o.customer}</div>
-                          <div class="muted mono">driver ${o.driver}</div>
-                        </div>
-                        <div class="order-actions">
-                          <button data-oid="${oid}" class="inspectBtn">Inspect</button>
-                        </div>
-                      </div>`;
-                    }));
-                    setHTML($('storeOrders'), rows.join('') || `<div class="muted">No orders in this status.</div>`);
-                    document.querySelectorAll('.inspectBtn').forEach(btn => btn.addEventListener('click', async () => {
-                      const id = Number(btn.dataset.oid);
-                      const o = await contract.methods.orders(id).call();
-                      o.statusName = STATUS[Number(o.status)];
-                      alert(`Order #${id}\n\nstore: ${o.store}\ncustomer: ${o.customer}\ndriver: ${o.driver}\nfoodTotal: ${o.foodTotal}\nfoodTip: ${o.foodTip}\ndeliveryFee: ${o.deliveryFee}\ndeliveryTip: ${o.deliveryTip}\nprocessingFee: ${o.processingFee}\nstatus: ${o.statusName}`);
-                    }));
-                  } catch(e){ setStatus(e.message); }
-                });
-              });
+      
+      // store order lists by status
+      const storeStatusBtns = [
+        ['storeOrdersPlacedBtn', 0],
+        ['storeOrdersAcceptedBtn', 1],
+        ['storeOrdersReadyBtn', 2],
+        ['storeOrdersOnDeliveryBtn', 3],
+        ['storeOrdersDeliveredBtn', 4],
+        ['storeOrdersCompletedBtn', 5],
+        ['storeOrdersCanceledBtn', 6],
+      ];
+      storeStatusBtns.forEach(([id, st]) => {
+        $(id).addEventListener('click', async () => {
+          console.log(`DEBUG: Store status button clicked: ${id} (status ${st})`);
+          try {
+            await ensureConnected();
+            const ids = await contract.methods.getStoreOrdersIdsByStatus(accounts[0], st).call();
+            const rows = await Promise.all(ids.map(async (oid) => {
+              const o = await contract.methods.orders(oid).call();
+              return `
+                <div class="order-row">
+                  <div>
+                    <div>#${oid} • ${STATUS[Number(o.status)]}</div>
+                    <div class="muted mono">customer ${o.customer}</div>
+                    <div class="muted mono">driver ${o.driver}</div>
+                  </div>
+                  <div class="order-actions">
+                    <button data-oid="${oid}" class="inspectBtn">Inspect</button>
+                  </div>
+                </div>`;
+              }));
+              setHTML($('storeOrders'), rows.join('') || `<div class="muted">No orders in this status.</div>`);
+              document.querySelectorAll('.inspectBtn').forEach(btn => btn.addEventListener('click', async () => {
+                console.log('DEBUG: Inspect order:', btn.dataset.oid);
+                const id = Number(btn.dataset.oid);
+                const o = await contract.methods.orders(id).call();
+                o.statusName = STATUS[Number(o.status)];
+                alert(`Order #${id}\n\nstore: ${o.store}\ncustomer: ${o.customer}\ndriver: ${o.driver}\nfoodTotal: ${o.foodTotal}\nfoodTip: ${o.foodTip}\ndeliveryFee: ${o.deliveryFee}\ndeliveryTip: ${o.deliveryTip}\nprocessingFee: ${o.processingFee}\nstatus: ${o.statusName}`);
+              }));
+            } catch(e){
+              console.error('ERROR in store status fetch:', e);
+              setStatus(e.message); 
+            }
+          });
+        });
               
-              // store order actions
-              $('acceptBtn').addEventListener('click', async () => {
-                try {
-                  await ensureConnected();
-                  const id = Number($('actAcceptId').value || 0);
-                  if (!id) throw new Error('enter orderId');
-                  const tx = await contract.methods.acceptOrder(id).send({ from: accounts[0] });
-                  setStatus(`accepted in block ${tx.blockNumber}`);
-                } catch(e){ setStatus(e.message); }
-              });
-              $('readyBtn').addEventListener('click', async () => {
-                try {
-                  await ensureConnected();
-                  const id = Number($('actReadyId').value || 0);
-                  if (!id) throw new Error('enter orderId');
-                  const tx = await contract.methods.readyForPickup(id).send({ from: accounts[0] });
-                  setStatus(`ready in block ${tx.blockNumber}`);
-                } catch(e){ setStatus(e.message); }
-              });
-              $('storeCancelBtn').addEventListener('click', async () => {
-                try {
-                  await ensureConnected();
-                  const id = Number($('actCancelId').value || 0);
-                  if (!id) throw new Error('enter orderId');
-                  const tx = await contract.methods.cancelOrder(id).send({ from: accounts[0] });
-                  setStatus(`canceled in block ${tx.blockNumber}`);
-                } catch(e){ setStatus(e.message); }
-              });
+        // store order actions
+        $('acceptBtn').addEventListener('click', async () => {
+          console.log('DEBUG: acceptBtn clicked');
+          try {
+            await ensureConnected();
+              const id = Number($('actAcceptId').value || 0);
+              if (!id) throw new Error('enter orderId');
+              const tx = await contract.methods.acceptOrder(id).send({ from: accounts[0] });
+              setStatus(`accepted in block ${tx.blockNumber}`);
+          } catch(e){
+            console.error('ERROR in acceptOrder:', e); 
+            setStatus(e.message); 
+          }
+        });
+        $('readyBtn').addEventListener('click', async () => {
+          console.log('DEBUG: readyBtn clicked');
+          try {
+            await ensureConnected();
+            const id = Number($('actReadyId').value || 0);
+            if (!id) throw new Error('enter orderId');
+            const tx = await contract.methods.readyForPickup(id).send({ from: accounts[0] });
+            setStatus(`ready in block ${tx.blockNumber}`);
+          } catch(e){
+            console.error('ERROR in readyForPickup:', e);
+            setStatus(e.message); 
+          }
+        });
+        $('storeCancelBtn').addEventListener('click', async () => {
+          console.log('DEBUG: storeCancelBtn clicked');
+          try {
+            await ensureConnected();
+            const id = Number($('actCancelId').value || 0);
+            if (!id) throw new Error('enter orderId');
+            const tx = await contract.methods.cancelOrder(id).send({ from: accounts[0] });
+            setStatus(`canceled in block ${tx.blockNumber}`);
+          } catch(e){
+            console.error('ERROR in cancelOrder:', e);
+            setStatus(e.message); 
+          }
+        });
+        
+        ////////////////////////
+        //// DRIVER
+        //////////////////////////
+        
+        $('registerDriverBtn').addEventListener('click', async () => {
+          console.log('DEBUG: registerDriverBtn clicked');
+          try {
+            await ensureConnected();
+            const tx = await contract.methods.registerDriver().send({ from: accounts[0] });
+            setStatus(`driver registered in block ${tx.blockNumber}`);
+            await refreshBadges();
+          } catch(e){
+            console.error('ERROR in registerDriver:', e);
+            setStatus(e.message); 
+          }
+        });
+        $('refreshAvailableBtn').addEventListener('click', () => {
+          console.log('DEBUG: refreshAvailableBtn clicked');
+          refreshAvailable();
+        });
+        async function refreshAvailable() {
+          try {
+            await ensureConnected();
+            const ids = await contract.methods.getAvailableOrderIdsForDelivery().call();
+            const rows = await Promise.all(ids.map(async id => {
+              const o = await contract.methods.orders(id).call();
+              return `
+                <div class="order-row">
+                  <div>
+                    <div>#${id} • ${STATUS[Number(o.status)]}</div>
+                    <div class="muted mono">restaurant ${o.store}</div>
+                    <div class="muted mono">customer ${o.customer}</div>
+                  </div>
+                  <div>
+                    <div class="badge mono">deliveryFee ${o.deliveryFee}</div>
+                    <div class="badge mono">tip ${o.deliveryTip}</div>
+                  </div>
+                </div>
+              `;
+            }));
+            setHTML($('availableOrders'), rows.join('') || `<div class="muted">No available deliveries.</div>`);
+            console.log('DEBUG: Available orders refreshed');
+          } catch(e){
+            console.error('ERROR in refreshAvailable:', e);
+            setStatus(e.message); 
+          }
+        }
               
-
-              ////////////////////////
-              //// DRIVER
-              //////////////////////////
-              $('registerDriverBtn').addEventListener('click', async () => {
-                try {
-                  await ensureConnected();
-                  const tx = await contract.methods.registerDriver().send({ from: accounts[0] });
-                  setStatus(`driver registered in block ${tx.blockNumber}`);
-                  await refreshBadges();
-                } catch(e){ setStatus(e.message); }
-              });
-              $('refreshAvailableBtn').addEventListener('click', refreshAvailable);
-              async function refreshAvailable() {
-                try {
-                  await ensureConnected();
-                  const ids = await contract.methods.getAvailableOrderIdsForDelivery().call();
-                  const rows = await Promise.all(ids.map(async id => {
-                    const o = await contract.methods.orders(id).call();
-                    return `
-                      <div class="order-row">
-                        <div>
-                          <div>#${id} • ${STATUS[Number(o.status)]}</div>
-                          <div class="muted mono">restaurant ${o.store}</div>
-                          <div class="muted mono">customer ${o.customer}</div>
-                        </div>
-                        <div>
-                          <div class="badge mono">deliveryFee ${o.deliveryFee}</div>
-                          <div class="badge mono">tip ${o.deliveryTip}</div>
-                        </div>
-                      </div>
-                    `;
-                  }));
-                  setHTML($('availableOrders'), rows.join('') || `<div class="muted">No available deliveries.</div>`);
-                } catch(e){ setStatus(e.message); }
-              }
-              $('pickupBtn').addEventListener('click', async () => {
-                try {
-                  await ensureConnected();
-                  const id = Number($('pickupOrderId').value || 0);
-                  if (!id) throw new Error('enter orderId');
-                  const tx = await contract.methods.pickedUpOrder(id).send({ from: accounts[0] });
-                  setStatus(`picked up in block ${tx.blockNumber}`);
-                  await refreshAvailable();
-                } catch(e){ setStatus(e.message); }
-              });
-              $('deliveredBtn').addEventListener('click', async () => {
-                try {
-                  await ensureConnected();
-                  const id = Number($('deliveredOrderId').value || 0);
-                  if (!id) throw new Error('enter orderId');
-                  const tx = await contract.methods.orderDelivered(id).send({ from: accounts[0] });
-                  setStatus(`delivered in block ${tx.blockNumber}`);
-                } catch(e){ setStatus(e.message); }
-              });
+        $('pickupBtn').addEventListener('click', async () => {
+          console.log('DEBUG: pickupBtn clicked');
+          try {
+            await ensureConnected();
+            const id = Number($('pickupOrderId').value || 0);
+            if (!id) throw new Error('enter orderId');
+            const tx = await contract.methods.pickedUpOrder(id).send({ from: accounts[0] });
+            setStatus(`picked up in block ${tx.blockNumber}`);
+            await refreshAvailable();
+          } catch(e){
+            console.error('ERROR in pickedUpOrder:', e);
+            setStatus(e.message); 
+          }
+        });
               
-              // customer final confirmation shortcut for testing
-              $('customerConfirmBtn').addEventListener('click', async () => {
-                try {
-                  await ensureConnected();
-                  const id = Number($('customerConfirmId').value || 0);
-                  if (!id) throw new Error('enter orderId');
-                  const tx = await contract.methods.confirmOrderDelivered(id).send({ from: accounts[0] });
-                  setStatus(`completed in block ${tx.blockNumber}`);
-                  await refreshGlobals();
-                } catch(e){ setStatus(e.message); }
-              });
-            });
+        $('deliveredBtn').addEventListener('click', async () => {
+          console.log('DEBUG: deliveredBtn clicked');
+          try {
+            await ensureConnected();
+            const id = Number($('deliveredOrderId').value || 0);
+            if (!id) throw new Error('enter orderId');
+            const tx = await contract.methods.orderDelivered(id).send({ from: accounts[0] });
+            setStatus(`delivered in block ${tx.blockNumber}`);
+          } catch(e){
+            console.error('ERROR in orderDelivered:', e);
+            setStatus(e.message); 
+          }
+        });
+        
+        // customer final confirmation shortcut for testing
+        $('customerConfirmBtn').addEventListener('click', async () => {
+          console.log('DEBUG: customerConfirmBtn clicked');
+          try {
+            await ensureConnected();
+            const id = Number($('customerConfirmId').value || 0);
+            if (!id) throw new Error('enter orderId');
+            const tx = await contract.methods.confirmOrderDelivered(id).send({ from: accounts[0] });
+            setStatus(`completed in block ${tx.blockNumber}`);
+            await refreshGlobals();
+          } catch(e){
+            console.error('ERROR in confirmOrderDelivered:', e);
+            setStatus(e.message); 
+          }
+        });
+  });
+    
