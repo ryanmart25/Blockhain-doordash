@@ -95,6 +95,43 @@
           <div id="accountsList"></div>
         </div>
       </div>
+      <div id="ownerPanel" class="tab-content">
+        <div class="section">
+          <h2>Owner Panel</h2>
+
+          <div class="info-box">
+            <strong>Note:</strong> This panel is only accessible to the contract
+            owner (Account 0).
+          </div>
+
+          <div class="form-group">
+            <label> Owner Account:</label>
+            <select id="ownerAccountSelect">
+              <option value="">Select Account</option>
+            </select>
+          </div>
+
+          <button onclick="loadOwnerDashboard()">Load Dashboard</button>
+
+          <div id="loadOwnerDashboard"></div>
+
+          <h3>Withdraw Processing Fees</h3>
+          <div cass="form-group">
+            <p>
+              Click the button below to withdraw collected processing fees to
+              the owner account
+            </p>
+          </div>
+          <button onclick="withdrawFees()">Withdraw Fees</button>
+          <div id="ownerActionStatus"></div>
+
+          <h3>Platform Statistics</h3>
+          <dv id="platformStats"></dv>
+        </div>
+      </div>
     </div>
+
+    <script src="app.js"></script>
+    <script src="functions.js"></script>
   </body>
 </html>
