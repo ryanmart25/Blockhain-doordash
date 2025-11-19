@@ -38,13 +38,61 @@
         <div class="section" style="text-align: center">
           <h2>Welcome to Meal Dispatch!</h2>
           <p>Select your role to continue:</p>
-
+          <!-- links for custoer and restaraunt and driver pages-->
           <div id="role-selection">
             <a href="customer.html" clas="role-card">
               <h3>Customer</h3>
               <p>Order food from your favorite restaruant!</p>
             </a>
+            <a href="restaurant.html" class="role-card">
+              <div class="role-icon">🏪</div>
+              <h3>Restaurant</h3>
+              <p>Manage your store, menu, and incoming orders.</p>
+            </a>
+
+            <a href="driver.html" class="role-card">
+              <div class="role-icon">🚗</div>
+              <h3>Driver</h3>
+              <p>Register as a driver and earn ETH by delivering food.</p>
+            </a>
           </div>
+        </div>
+      </div>
+      <!-- code for the setup tab-->
+      <div id="setup" class="tab-content">
+        <div class="section">
+          <h2>Setup Connections</h2>
+
+          <div class="info-box">
+            <strong>Before connecting, make sure:</strong><br />
+            1. Ganache is running: <code>ganache-cli -p 7545</code><br />
+            2. IPFS daemon is running: <code>ipfs daemon</code><br />
+            3. Contract is deployed: <code>truffle migrate --reset</code>
+          </div>
+
+          <div class="form-group">
+            <label>Ganache RPC URL:</label>
+            <input type="text" id="rpcUrl" value="http://127.0.0.1:7545" />
+          </div>
+
+          <div class="form-group">
+            <label>IPFS API URL</label>
+            <input type="text" id="ipfsUrl" value="http:127.0.0.1:5001" />
+          </div>
+
+          <div class="form-group">
+            <label>Contract Address: </label>
+            <input type="text" id="contractAddress" placeholder="0x..." />
+          </div>
+
+          <button onclick="testConnections()">Test Connections</button>
+          <button onclick="initializeConnections()">Connect All</button>
+
+          <div id="connectionStatus"></div>
+          <div id="errorConsole" class="error-console hidden"></div>
+
+          <h3 ganache Accounts></h3>
+          <div id="accountsList"></div>
         </div>
       </div>
     </div>
