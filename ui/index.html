@@ -15,13 +15,22 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div>
+    <div class="container">
       <div class="header">
         <h1>
           <span class="brand-meal">Meal</span
           ><span class="brand-dispatch">Dispatch</span>
         </h1>
         <p>Decentralized Food Delivery - Powered by Ethereum & IPFS</p>
+      </div>
+      <div class="tabs">
+        <button class="tab active" onclick="openTab(event, 'home')">
+          Home
+        </button>
+        <button class="tab" onclick="openTab(event, 'setup')">Setup</button>
+        <button class="tab" onclick="openTab(event, 'ownerPanel')">
+          Owner
+        </button>
       </div>
     </div>
   </body>
