@@ -1,61 +1,8 @@
 <!DOCTYPE html>
 <html>
-  <body>
-    <section class="card">
-      <div class="row">
-        <input
-          id="contractAddr"
-          class="mono"
-          placeholder="contract address 0x..."
-        />
-        <button id="loadContractBtn">Load contract</button>
-        <span>owner: <span id="ownerAddr" class="mono">-</span></span>
-        <span>orderCounter: <span id="orderCounter" class="mono">-</span></span>
-      </div>
-      <div class="row">
-        <span
-          >contract balance: <span id="contractBal" class="mono">-</span></span
-        >
-        <span
-          >fees collected: <span id="feesCollected" class="mono">-</span></span
-        >
-        <button id="refreshGlobalsBtn">Refresh</button>
-      </div>
-      <div class="row">
-        <input id="inspectOrderId" type="number" placeholder="orderId" />
-        <button id="inspectOrderBtn">Inspect order</button>
-      </div>
-      <pre id="inspectOrderJson" class="pre">{}</pre>
-      <div class="section muted">live events</div>
-      <pre id="events" class="pre"></pre>
-      <div id="status" class="muted">ready</div>
-    </section>
 
-    <nav class="tabs">
-      <button class="tab active" data-tab="customer">Customer</button>
-      <button class="tab" data-tab="store">Restaurant Owner</button>
-      <button class="tab" data-tab="driver">Driver</button>
-    </nav>
 
     <!-- CUSTOMER -->
-    <section id="customer" class="tabpanel active">
-      <div class="grid">
-        <div class="card">
-          <h3>Select restaurant</h3>
-          <div class="row">
-            <input
-              id="customerStoreAddr"
-              class="mono"
-              placeholder="restaurant store address 0x..."
-            />
-            <button id="loadMenuBtn">Load menu</button>
-          </div>
-          <div class="muted">
-            Owners manage menus in the Restaurant Owner tab. Menus are stored
-            off-chain per store address.
-          </div>
-          <div id="menuList"></div>
-        </div>
 
         <div class="card">
           <h3>Your cart</h3>
