@@ -1,13 +1,5 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>MealDispatchDApp</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <link rel="stylesheet" href="./styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.4/dist/web3.min.js"></script>
-    <script type="module" src="./app.js"></script>
-  </head>
   <body>
     <header class="topbar">
       <div class="brand">MealDispatchDApp</div>
@@ -20,14 +12,22 @@
 
     <section class="card">
       <div class="row">
-        <input id="contractAddr" class="mono" placeholder="contract address 0x..." />
+        <input
+          id="contractAddr"
+          class="mono"
+          placeholder="contract address 0x..."
+        />
         <button id="loadContractBtn">Load contract</button>
         <span>owner: <span id="ownerAddr" class="mono">-</span></span>
         <span>orderCounter: <span id="orderCounter" class="mono">-</span></span>
       </div>
       <div class="row">
-        <span>contract balance: <span id="contractBal" class="mono">-</span></span>
-        <span>fees collected: <span id="feesCollected" class="mono">-</span></span>
+        <span
+          >contract balance: <span id="contractBal" class="mono">-</span></span
+        >
+        <span
+          >fees collected: <span id="feesCollected" class="mono">-</span></span
+        >
         <button id="refreshGlobalsBtn">Refresh</button>
       </div>
       <div class="row">
@@ -52,10 +52,17 @@
         <div class="card">
           <h3>Select restaurant</h3>
           <div class="row">
-            <input id="customerStoreAddr" class="mono" placeholder="restaurant store address 0x..." />
+            <input
+              id="customerStoreAddr"
+              class="mono"
+              placeholder="restaurant store address 0x..."
+            />
             <button id="loadMenuBtn">Load menu</button>
           </div>
-          <div class="muted">Owners manage menus in the Restaurant Owner tab. Menus are stored off-chain per store address.</div>
+          <div class="muted">
+            Owners manage menus in the Restaurant Owner tab. Menus are stored
+            off-chain per store address.
+          </div>
           <div id="menuList"></div>
         </div>
 
@@ -66,16 +73,36 @@
             <button id="clearCartBtn">Clear cart</button>
           </div>
           <div class="summary">
-            <div>food subtotal: <span id="cartSubtotal" class="mono">0</span> wei</div>
-            <div class="row">
-              <input id="tipRestaurant" type="number" placeholder="restaurant tip wei" />
-              <input id="tipDriver" type="number" placeholder="driver tip wei" />
+            <div>
+              food subtotal: <span id="cartSubtotal" class="mono">0</span> wei
             </div>
             <div class="row">
-              <input id="deliveryFee" type="number" placeholder="delivery fee wei" />
-              <input id="processingFee" type="number" placeholder="processing fee wei" />
+              <input
+                id="tipRestaurant"
+                type="number"
+                placeholder="restaurant tip wei"
+              />
+              <input
+                id="tipDriver"
+                type="number"
+                placeholder="driver tip wei"
+              />
             </div>
-            <div>total msg.value: <span id="cartTotal" class="mono">0</span> wei</div>
+            <div class="row">
+              <input
+                id="deliveryFee"
+                type="number"
+                placeholder="delivery fee wei"
+              />
+              <input
+                id="processingFee"
+                type="number"
+                placeholder="processing fee wei"
+              />
+            </div>
+            <div>
+              total msg.value: <span id="cartTotal" class="mono">0</span> wei
+            </div>
             <button id="checkoutBtn">Checkout and place order</button>
             <div id="checkoutMsg" class="ok"></div>
           </div>
@@ -114,14 +141,25 @@
 
         <div class="card">
           <h3>Menu editor</h3>
-          <div class="muted">Menus are stored locally by store address. Enter your store address to edit.</div>
+          <div class="muted">
+            Menus are stored locally by store address. Enter your store address
+            to edit.
+          </div>
           <div class="row">
-            <input id="ownerStoreAddr" class="mono" placeholder="your store address 0x..." />
+            <input
+              id="ownerStoreAddr"
+              class="mono"
+              placeholder="your store address 0x..."
+            />
             <button id="loadOwnerMenuBtn">Load my menu</button>
           </div>
           <div class="row">
             <input id="menuItemName" placeholder="Item name" />
-            <input id="menuItemPrice" type="number" placeholder="Price in wei" />
+            <input
+              id="menuItemPrice"
+              type="number"
+              placeholder="Price in wei"
+            />
             <button id="addMenuItemBtn">Add item</button>
           </div>
           <div id="ownerMenuList"></div>
@@ -176,8 +214,14 @@
             <button id="deliveredBtn">orderDelivered</button>
           </div>
           <div class="row">
-            <input id="customerConfirmId" type="number" placeholder="orderId (for customer confirm)" />
-            <button id="customerConfirmBtn">customer confirmOrderDelivered</button>
+            <input
+              id="customerConfirmId"
+              type="number"
+              placeholder="orderId (for customer confirm)"
+            />
+            <button id="customerConfirmBtn">
+              customer confirmOrderDelivered
+            </button>
           </div>
         </div>
       </div>
