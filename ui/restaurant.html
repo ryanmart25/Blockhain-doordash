@@ -79,9 +79,9 @@
           <h2>Add/Modify Stores</h2>
 
           <div class="info-box">
-            <strong>📌 Note:</strong> Create and modify store information saved
-            on IPFS. Stores must then be registered on the blockchain to be
-            visible to customers.
+            <strong>Note:</strong> Create and modify store information saved on
+            IPFS. Stores must then be registered on the blockchain to be visible
+            to customers.
           </div>
 
           <div class="form-group">
@@ -160,6 +160,36 @@
           </div>
 
           <div id="addStoreStatus"></div>
+        </div>
+      </div>
+      <div id="registerStore" class="tab-content">
+        <div class="section">
+          <h2>🏪 Register Stores on Blockchain</h2>
+
+          <div class="info-box">
+            <strong>⚠️ Important:</strong> Select a store from IPFS and an
+            account to register it.
+          </div>
+
+          <div class="form-group">
+            <label>Select Store from IPFS:</label>
+            <select id="registerStoreSelect">
+              <option value="">-- Select a Store --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Select Account:</label>
+            <select id="registerStoreAccount"></select>
+          </div>
+
+          <button onclick="registerStoreOnBlockchain()">
+            🔗 Register Store
+          </button>
+          <div id="registerStoreStatus"></div>
+
+          <h3>Registered Stores</h3>
+          <div id="registeredStoresList"></div>
         </div>
       </div>
     </div>
