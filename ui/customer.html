@@ -14,4 +14,35 @@
     <!-- Link to external CSS stylesheet -->
     <link rel="stylesheet" href="styles.css" />
   </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>
+          <span class="brand-meal">Customer</span
+          ><span class="brand-dispatch">Portal</span>
+        </h1>
+        <p>Decentralized Food Delivery - Order Food</p>
+      </div>
+
+      <!-- code for the tabs-->
+
+      <div class="tabs">
+        <a href="index.html" class="tab-link">Home</a>
+        <button class="tab active" onclick="openTab(event, 'setup')">
+          Setup
+        </button>
+        <button class="tab" onclick="openTab(event, 'addCustomer')">
+          Add Customer
+        </button>
+        <button class="tab" onclick="openTab(event, 'customer')">
+          Order Food
+        </button>
+      </div>
+      <div id="setup" class="tab-content active">
+        <div class="section">
+          <h2>Setup Connections</h2>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>
