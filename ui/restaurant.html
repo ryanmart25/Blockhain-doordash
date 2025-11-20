@@ -21,7 +21,8 @@
         </h1>
         <p>Decetralized Food Delivery - Store Management</p>
       </div>
-
+      <!-- tab navigation section, same as the others-->
+      <!-- copy pasted from other file-->
       <div class="tabs">
         <a href="index.html" class="tab-link">Home</a>
         <button class="tab active" onclick="openTab(event, 'setup')">
@@ -36,6 +37,130 @@
         <button class="tab" onclick="openTab(event, 'storeManagement')">
           Store Management
         </button>
+      </div>
+      <div id="setup" class="tab-content active">
+        <div class="section">
+          <h2>Setup Connections</h2>
+
+          <div class="info-box">
+            <strong>Before connecting, make sure:</strong><br />
+            1. Ganache is running: <code>ganache-cli -p 7545</code><br />
+            2. IPFS daemon is running: <code>ipfs daemon</code><br />
+            3. Contract is deployed: <code>truffle migrate --reset</code>
+          </div>
+
+          <div class="form-group">
+            <label>Ganache RPC URL:</label>
+            <input type="text" id="rpcUrl" value="http://127.0.0.1:7545" />
+          </div>
+
+          <div class="form-group">
+            <label>IPFS API URL:</label>
+            <input type="text" id="ipfsUrl" value="http://127.0.0.1:5001" />
+          </div>
+
+          <div class="form-group">
+            <label>Contract Address:</label>
+            <input type="text" id="contractAddress" placeholder="0x..." />
+          </div>
+
+          <button onclick="testConnections()">Test Connections</button>
+          <button onclick="initializeConnections()">Connect All</button>
+
+          <div id="connectionStatus"></div>
+          <div id="errorConsole" class="error-console hidden"></div>
+
+          <h3>Ganache Accounts</h3>
+          <div id="accountsList"></div>
+        </div>
+      </div>
+      <div id="addStore" class="tab-content">
+        <div class="section">
+          <h2>Add/Modify Stores</h2>
+
+          <div class="info-box">
+            <strong>📌 Note:</strong> Create and modify store information saved
+            on IPFS. Stores must then be registered on the blockchain to be
+            visible to customers.
+          </div>
+
+          <div class="form-group">
+            <label>Select Existing Store:</label>
+            <select id="existingStoreSelect" onchange="loadExistingStore()">
+              <option value="">-- Create New Store --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Store Name:</label>
+            <input
+              type="text"
+              id="addStoreName"
+              placeholder="e.g., Pizza Palace"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Store Description:</label>
+            <textarea
+              id="addStoreDescription"
+              rows="3"
+              placeholder="Describe your restaurant..."
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Store Street Address:</label>
+            <input
+              type="text"
+              id="addStoreStreetAddress"
+              placeholder="e.g., 123 Main St, Rocklin, CA 95677"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Store Logo:</label>
+            <input
+              type="file"
+              id="addStoreLogo"
+              accept="image/*"
+              onchange="previewImage('addStoreLogo', 'storeLogoPreview')"
+            />
+            <img
+              id="storeLogoPreview"
+              class="image-preview"
+              style="display: none"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Store Picture:</label>
+            <input
+              type="file"
+              id="addStorePicture"
+              accept="image/*"
+              onchange="previewImage('addStorePicture', 'storePicturePreview')"
+            />
+            <img
+              id="storePicturePreview"
+              class="image-preview"
+              style="display: none"
+            />
+          </div>
+
+          <h3>Menu Items</h3>
+          <div id="menuItemsContainer"></div>
+          <button onclick="addMenuItem()">+ Add Menu Item</button>
+
+          <div style="margin-top: 20px">
+            <button onclick="saveStoreToIPFS()">Save Store to IPFS</button>
+            <button class="btn-danger" onclick="removeStore()">
+              Remove Selected Store
+            </button>
+          </div>
+
+          <div id="addStoreStatus"></div>
+        </div>
       </div>
     </div>
   </body>
