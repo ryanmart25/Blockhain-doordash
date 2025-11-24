@@ -1,190 +1,137 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8" />
-    <title>MealDispatchDApp</title>
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <link rel="stylesheet" href="./styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/web3@4.16.0/dist/web3.min.js"></script>
-   
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MealDispatch - Decentralized Food Delivery</title>
+
+    <!-- Web3.js library for Ethereum blockchain interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+
+    <!-- IPFS HTTP Client library for decentralized storage -->
+    <script src="https://cdn.jsdelivr.net/npm/ipfs-http-client@60.0.1/dist/index.min.js"></script>
+
+    <!-- Link to external CSS stylesheet -->
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand">MealDispatchDApp</div>
-      <div class="wallet">
-        <button id="connectBtn">Connect</button>
-        <span id="acct" class="mono">Not connected</span>
-        <span id="net" class="pill">chainId -</span>
+    <div class="container">
+      <div class="header">
+        <h1>
+          <span class="brand-meal">Meal</span
+          ><span class="brand-dispatch">Dispatch</span>
+        </h1>
+        <p>Decentralized Food Delivery - Powered by Ethereum & IPFS</p>
       </div>
-    </header>
-
-    <section class="card">
-      <div class="row">
-        <input id="contractAddr" class="mono" placeholder="contract address 0x..." />
-        <button id="loadContractBtn">Load contract</button>
-        <span>owner: <span id="ownerAddr" class="mono">-</span></span>
-        <span>orderCounter: <span id="orderCounter" class="mono">-</span></span>
+      <div class="tabs">
+        <button class="tab active" onclick="openTab(event, 'home')">
+          Home
+        </button>
+        <button class="tab" onclick="openTab(event, 'setup')">Setup</button>
+        <button class="tab" onclick="openTab(event, 'ownerPanel')">
+          Owner
+        </button>
       </div>
-      <div class="row">
-        <span>contract balance: <span id="contractBal" class="mono">-</span></span>
-        <span>fees collected: <span id="feesCollected" class="mono">-</span></span>
-        <button id="refreshGlobalsBtn">Refresh</button>
-      </div>
-      <div class="row">
-        <input id="inspectOrderId" type="number" placeholder="orderId" />
-        <button id="inspectOrderBtn">Inspect order</button>
-      </div>
-      <pre id="inspectOrderJson" class="pre">{}</pre>
-      <div class="section muted">live events</div>
-      <pre id="events" class="pre"></pre>
-      <div id="status" class="muted">ready</div>
-    </section>
 
-    <nav class="tabs">
-      <button class="tab active" data-tab="customer">Customer</button>
-      <button class="tab" data-tab="store">Restaurant Owner</button>
-      <button class="tab" data-tab="driver">Driver</button>
-    </nav>
+      <!-- code for the home tab-->
+      <div id="home" class="tab-content active">
+        <div class="section" style="text-align: center">
+          <h2>Welcome to Meal Dispatch!</h2>
+          <p>Select your role to continue:</p>
+          <!-- links for custoer and restaraunt and driver pages-->
+          <div id="role-selection">
+            <a href="customer.html" clas="role-card">
+              <h3>Customer</h3>
+              <p>Order food from your favorite restaruant!</p>
+            </a>
+            <a href="restaurant.html" class="role-card">
+              <div class="role-icon"></div>
+              <h3>Restaurant</h3>
+              <p>Manage your store, menu, and incoming orders.</p>
+            </a>
 
-    <!-- CUSTOMER -->
-    <section id="customer" class="tabpanel active">
-      <div class="grid">
-        <div class="card">
-          <h3>Select restaurant</h3>
-          <div class="row">
-            <input id="customerStoreAddr" class="mono" placeholder="restaurant store address 0x..." />
-            <button id="loadMenuBtn">Load menu</button>
-          </div>
-          <div class="muted">Owners manage menus in the Restaurant Owner tab. Menus are stored off-chain per store address.</div>
-          <div id="menuList"></div>
-        </div>
-
-        <div class="card">
-          <h3>Your cart</h3>
-          <div id="cartList"></div>
-          <div class="row">
-            <button id="clearCartBtn">Clear cart</button>
-          </div>
-          <div class="summary">
-            <div>food subtotal: <span id="cartSubtotal" class="mono">0</span> wei</div>
-            <div class="row">
-              <input id="tipRestaurant" type="number" placeholder="restaurant tip wei" />
-              <input id="tipDriver" type="number" placeholder="driver tip wei" />
-            </div>
-            <div class="row">
-              <input id="deliveryFee" type="number" placeholder="delivery fee wei" />
-              <input id="processingFee" type="number" placeholder="processing fee wei" />
-            </div>
-            <div>total msg.value: <span id="cartTotal" class="mono">0</span> wei</div>
-            <button id="checkoutBtn">Checkout and place order</button>
-            <div id="checkoutMsg" class="ok"></div>
+            <a href="driver.html" class="role-card">
+              <div class="role-icon"></div>
+              <h3>Driver</h3>
+              <p>Register as a driver and earn ETH by delivering food.</p>
+            </a>
           </div>
         </div>
       </div>
+      <!-- code for the setup tab-->
+      <div id="setup" class="tab-content">
+        <div class="section">
+          <h2>Setup Connections</h2>
 
-      <div class="grid">
-        <div class="card">
-          <h3>My orders</h3>
-          <button id="refreshMyOrdersBtn">Refresh my orders</button>
-          <div id="myOrders"></div>
+          <div class="info-box">
+            <strong>Before connecting, make sure:</strong><br />
+            1. Ganache is running: <code>ganache-cli -p 7545</code><br />
+            2. IPFS daemon is running: <code>ipfs daemon</code><br />
+            3. Contract is deployed: <code>truffle migrate --reset</code>
+          </div>
+
+          <div class="form-group">
+            <label>Ganache RPC URL:</label>
+            <input type="text" id="rpcUrl" value="http://127.0.0.1:7545" />
+          </div>
+
+          <div class="form-group">
+            <label>IPFS API URL</label>
+            <input type="text" id="ipfsUrl" value="http:127.0.0.1:5001" />
+          </div>
+
+          <div class="form-group">
+            <label>Contract Address: </label>
+            <input type="text" id="contractAddress" placeholder="0x..." />
+          </div>
+
+          <button onclick="testConnections()">Test Connections</button>
+          <button onclick="initializeConnections()">Connect All</button>
+
+          <div id="connectionStatus"></div>
+          <div id="errorConsole" class="error-console hidden"></div>
+
+          <h3 ganache Accounts></h3>
+          <div id="accountsList"></div>
         </div>
       </div>
-    </section>
+      <div id="ownerPanel" class="tab-content">
+        <div class="section">
+          <h2>Owner Panel</h2>
 
-    <!-- RESTAURANT OWNER -->
-    <section id="store" class="tabpanel">
-      <div class="grid">
-        <div class="card">
-          <h3>Store registration</h3>
-          <div class="row">
-            <button id="registerStoreBtn">registerStore</button>
-            <span id="storeRegState" class="pill">unknown</span>
+          <div class="info-box">
+            <strong>Note:</strong> This panel is only accessible to the contract
+            owner (Account 0).
           </div>
-          <div class="row">
-            <button id="storeOrdersPlacedBtn">Placed</button>
-            <button id="storeOrdersAcceptedBtn">Accepted</button>
-            <button id="storeOrdersReadyBtn">ReadyForPickup</button>
-            <button id="storeOrdersOnDeliveryBtn">OnDelivery</button>
-            <button id="storeOrdersDeliveredBtn">Delivered</button>
-            <button id="storeOrdersCompletedBtn">Completed</button>
-            <button id="storeOrdersCanceledBtn">Canceled</button>
-          </div>
-          <div id="storeOrders"></div>
-        </div>
 
-        <div class="card">
-          <h3>Menu editor</h3>
-          <div class="muted">Menus are stored locally by store address. Enter your store address to edit.</div>
-          <div class="row">
-            <input id="ownerStoreAddr" class="mono" placeholder="your store address 0x..." />
-            <button id="loadOwnerMenuBtn">Load my menu</button>
+          <div class="form-group">
+            <label> Owner Account:</label>
+            <select id="ownerAccountSelect">
+              <option value="">Select Account</option>
+            </select>
           </div>
-          <div class="row">
-            <input id="menuItemName" placeholder="Item name" />
-            <input id="menuItemPrice" type="number" placeholder="Price in wei" />
-            <button id="addMenuItemBtn">Add item</button>
-          </div>
-          <div id="ownerMenuList"></div>
-          <button id="saveMenuBtn">Save menu</button>
-        </div>
 
-        <div class="card">
-          <h3>Order actions</h3>
-          <div class="row">
-            <input id="actAcceptId" type="number" placeholder="orderId" />
-            <button id="acceptBtn">acceptOrder</button>
+          <button onclick="loadOwnerDashboard()">Load Dashboard</button>
+
+          <div id="loadOwnerDashboard"></div>
+
+          <h3>Withdraw Processing Fees</h3>
+          <div cass="form-group">
+            <p>
+              Click the button below to withdraw collected processing fees to
+              the owner account
+            </p>
           </div>
-          <div class="row">
-            <input id="actReadyId" type="number" placeholder="orderId" />
-            <button id="readyBtn">readyForPickup</button>
-          </div>
-          <div class="row">
-            <input id="actCancelId" type="number" placeholder="orderId" />
-            <button id="storeCancelBtn">cancelOrder</button>
-          </div>
+          <button onclick="withdrawFees()">Withdraw Fees</button>
+          <div id="ownerActionStatus"></div>
+
+          <h3>Platform Statistics</h3>
+          <dv id="platformStats"></dv>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- DRIVER -->
-    <section id="driver" class="tabpanel">
-      <div class="grid">
-        <div class="card">
-          <h3>Driver registration</h3>
-          <div class="row">
-            <button id="registerDriverBtn">registerDriver</button>
-            <span id="driverRegState" class="pill">unknown</span>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Available deliveries</h3>
-          <div class="row">
-            <button id="refreshAvailableBtn">Refresh list</button>
-          </div>
-          <div id="availableOrders"></div>
-        </div>
-
-        <div class="card">
-          <h3>Deliveries actions</h3>
-          <div class="row">
-            <input id="pickupOrderId" type="number" placeholder="orderId" />
-            <button id="pickupBtn">pickedUpOrder</button>
-          </div>
-          <div class="row">
-            <input id="deliveredOrderId" type="number" placeholder="orderId" />
-            <button id="deliveredBtn">orderDelivered</button>
-          </div>
-          <div class="row">
-            <input id="customerConfirmId" type="number" placeholder="orderId (for customer confirm)" />
-            <button id="customerConfirmBtn">customer confirmOrderDelivered</button>
-          </div>
-        </div>
-      </div>
-    </section>
-     <script type="module" src="./app.js"></script>
-
-
-
+    <script src="app.js"></script>
+    <script src="functions.js"></script>
   </body>
 </html>

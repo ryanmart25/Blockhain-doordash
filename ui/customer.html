@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meal Dispatch - Customer Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+    <!-- Web3.js library for Ethereum blockchain interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+
+    <!-- IPFS HTTP Client library for decentralized storage -->
+    <script src="https://cdn.jsdelivr.net/npm/ipfs-http-client@60.0.1/dist/index.min.js"></script>
+
+    <!-- Link to external CSS stylesheet -->
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>
+          <span class="brand-meal">Customer</span
+          ><span class="brand-dispatch">Portal</span>
+        </h1>
+        <p>Decentralized Food Delivery - Order Food</p>
+      </div>
+
+      <!-- code for the tabs-->
+
+      <div class="tabs">
+        <a href="index.html" class="tab-link">Home</a>
+        <button class="tab active" onclick="openTab(event, 'setup')">
+          Setup
+        </button>
+        <button class="tab" onclick="openTab(event, 'addCustomer')">
+          Add Customer
+        </button>
+        <button class="tab" onclick="openTab(event, 'customer')">
+          Order Food
+        </button>
+      </div>
+      <div id="setup" class="tab-content active">
+        <div class="section">
+          <h2>Setup Connections</h2>
+          <div class="info-box">
+            <strong>Before connecting, make sure:</strong><br />
+            1. Ganache is running: <code>ganache-cli -p 7545</code><br />
+            2. IPFS daemon is running: <code>ipfs daemon</code><br />
+            3. Contract is deployed: <code>truffle migrate --reset</code>
+          </div>
+          <div class="form-group">
+            <label>Ganache RPC URL:</label>
+            <input type="text" id="rpcUrl" value="http://127.0.0.1:7545" />
+          </div>
+          <div class="form-group">
+            <label>IPFS API URL:</label>
+            <input type="text" id="ipfsUrl" value="http://127.0.0.1:5001" />
+          </div>
+          <div class="form-group">
+            <label>Contract Address:</label>
+            <input type="text" id="contractAddress" placeholder="0x..." />
+          </div>
+          <button onclick="testConnections()">🔍 TEST CONNECTIONS</button>
+          <button onclick="initializeConnections()">✅ CONNECT ALL</button>
+
+          <div id="connectionStatus"></div>
+          <div id="errorConsole" class="error-console hidden"></div>
+
+          <h3>📋 Ganache Accounts</h3>
+
+          <div id="accountsList"></div>
+        </div>
+      </div>
+      <div id="addCustomer" class="tab-content">
+        <div class="section">
+          <h2>Add Customer Profile</h2>
+          <div class="form-group">
+            <label>Select Existing Customer:</label>
+            <select
+              id="existingCustomerSelect"
+              onchange="loadExistingCustomer()"
+            >
+              <option value="">-- Create New --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Name:</label>
+            <input type="text" id="addCustomerName" placeholder="Your name" />
+          </div>
+          <div class="form-group">
+            <label>Delivery Address:</label>
+            <textarea
+              id="addCustomerAddress"
+              rows="3"
+              placeholder="Your address"
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Phone:</label>
+            <input type="text" id="addCustomerPhone" placeholder="Phone" />
+          </div>
+
+          <div class="form-group">
+            <label>Profile Picture:</label>
+            <input
+              type="file"
+              id="addCustomerPicture"
+              accept="image/*"
+              onchange="previewImage('addCustomerPicture', 'customerPicturePreview')"
+            />
+            <img
+              id="customerPicturePreview"
+              class="image-preview"
+              style="display: none"
+            />
+          </div>
+
+          <button onclick="saveCustomerToIPFS()">💾 Save Profile</button>
+          <button class="btn-danger" onclick="removeCustomer()">
+            🗑️ Remove
+          </button>
+          <div id="addCustomerStatus"></div>
+        </div>
+      </div>
+      <div id="customer" class="tab-content">
+        <div class="section">
+          <h2>Order Food</h2>
+          <div class="form-group">
+            <label>Select Your Name</label>
+            <select
+              id="customerNameSelect"
+              onchange="loadCustomerByName()"
+            ></select>
+          </div>
+
+          <div id="customerAccountSelectDiv" class="form-group hidden">
+            <label>Select Account to Link:</label>
+            <select id="customerAccountSelect"></select>
+            <button onclick="linkCustomerAccount()">Link Account</button>
+          </div>
+
+          <div id="customerProfileDisplay"></div>
+          <div class="form-group">
+            <label>Select Store:</label>
+            <select id="orderStoreSelect" onchange="loadStoreMenu()">
+              <option value="">Select Store</option>
+            </select>
+          </div>
+
+          <div id="storeMenuDisplay"></div>
+          <div id="CartDisplay"></div>
+          <button id="placeOrderBtn" onclick="placeOrder()" disabled>
+            Place Order
+          </button>
+          <h3>My Orders</h3>
+          <div id="customerOrdersList"></div>
+        </div>
+      </div>
+    </div>
+    <script src="app.js"></script>
+    <script src="functions.js"></script>
+  </body>
+</html>
