@@ -26,10 +26,7 @@
       <!--code for the tabs-->
       <div class="tabs">
         <a href="index.html" class="tab-link">Home</a>
-        <button class="tab active" onclick="openTab(event, 'setup')">
-          Setup
-        </button>
-        <button class="tab" onclick="openTab(event, 'addDriver')">
+        <button class="tab active" onclick="openTab(event, 'addDriver')">
           Add Drivers
         </button>
         <button class="tab" onclick="openTab(event, 'registerDriver')">
@@ -39,42 +36,7 @@
           Driver Panel
         </button>
       </div>
-      <div id="setup" class="tab-content active">
-        <div class="section">
-          <h2>Setup Connections</h2>
-          <div class="info-box">
-            <strong>Before connecting, make sure:</strong><br />
-            1. Ganache is running: <code>ganache-cli -p 7545</code><br />
-            2. IPFS daemon is running: <code>ipfs daemon</code><br />
-            3. Contract is deployed: <code>truffle migrate --reset</code>
-          </div>
-
-          <div class="form-group">
-            <label>Ganache RPC URL</label>
-            <input type="text" id="rpcUrl" value="http:127.0.0.1:7545" />
-          </div>
-
-          <div class="form-group">
-            <label>IPFS API URL:</label>
-            <input type="text" id="ipfsUrl" value="http://127.0.0.1:5001" />
-          </div>
-          <div class="form-group">
-            <label>Contract Address:</label>
-            <input type="text" id="contractAddress" placeholder="0x..." />
-          </div>
-
-          <button onclick="testConnections()">Test Connections</button>
-          <button onclick="initializeConnections()">Connect All</button>
-
-          <div id="connectionStatus"></div>
-          <div id="errorConsole" class="error-console hidden"></div>
-
-          <h3>Ganache Accounts</h3>
-          <div id="accountsList"></div>
-        </div>
-      </div>
-
-      <div id="addDriver" class="tab-content">
+      <div id="addDriver" class="tab-content active">
         <div class="section">
           <h2>Add/Modify Drivers</h2>
           <div class="info-box">

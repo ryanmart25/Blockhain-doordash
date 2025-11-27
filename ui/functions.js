@@ -320,9 +320,9 @@ async function saveStoreToIPFS() {
     populateExistingStoresDropdown();
     populateRegisterStoreDropdown();
 
-    showStatus("addStoreStatus", `✅ Store saved! CID: ${storeCID}`, "success");
+    showStatus("addStoreStatus", `Store saved! CID: ${storeCID}`, "success");
   } catch (error) {
-    showStatus("addStoreStatus", `❌ ${error.message}`, "error");
+    showStatus("addStoreStatus", `${error.message}`, "error");
   }
 }
 /**
@@ -352,7 +352,7 @@ function removeStore() {
   populateExistingStoresDropdown();
   populateRegisterStoreDropdown();
 
-  showStatus("addStoreStatus", "✅ Store removed from registry", "success");
+  showStatus("addStoreStatus", "Store removed from registry", "success");
 }
 
 // ==================== REGISTER STORE ON BLOCKCHAIN ====================
@@ -412,9 +412,9 @@ async function registerStoreOnBlockchain() {
     populateRegisterStoreDropdown();
     await loadRegisteredStores();
 
-    showStatus("registerStoreStatus", "✅ Store registered!", "success");
+    showStatus("registerStoreStatus", "Store registered!", "success");
   } catch (error) {
-    showStatus("registerStoreStatus", `❌ ${error.message}`, "error");
+    showStatus("registerStoreStatus", `${error.message}`, "error");
   }
 }
 
@@ -694,11 +694,11 @@ async function saveDriverToIPFS() {
 
     showStatus(
       "addDriverStatus",
-      `✅ Driver saved! CID: ${driverCID}`,
+      `Driver saved! CID: ${driverCID}`,
       "success"
     );
   } catch (error) {
-    showStatus("addDriverStatus", `❌ ${error.message}`, "error");
+    showStatus("addDriverStatus", `${error.message}`, "error");
   }
 }
 
@@ -725,7 +725,7 @@ function removeDriver() {
   populateExistingDriversDropdown();
   populateRegisterDriverDropdown();
 
-  showStatus("addDriverStatus", "✅ Driver removed from registry", "success");
+  showStatus("addDriverStatus", "Driver removed from registry", "success");
 }
 
 /**
@@ -774,9 +774,9 @@ async function registerDriverOnBlockchain() {
     await populateDriverNamesDropdown();
     await loadRegisteredDrivers();
 
-    showStatus("registerDriverStatus", "✅ Driver registered!", "success");
+    showStatus("registerDriverStatus", "Driver registered!", "success");
   } catch (error) {
-    showStatus("registerDriverStatus", `❌ ${error.message}`, "error");
+    showStatus("registerDriverStatus", `${error.message}`, "error");
   }
 }
 
@@ -974,11 +974,11 @@ async function saveCustomerToIPFS() {
 
     showStatus(
       "addCustomerStatus",
-      `✅ Customer saved! CID: ${customerCID}`,
+      `Customer saved! CID: ${customerCID}`,
       "success"
     );
   } catch (error) {
-    showStatus("addCustomerStatus", `❌ ${error.message}`, "error");
+    showStatus("addCustomerStatus", `${error.message}`, "error");
   }
 }
 
@@ -1004,7 +1004,7 @@ function removeCustomer() {
 
   showStatus(
     "addCustomerStatus",
-    "✅ Customer removed from registry",
+    "Customer removed from registry",
     "success"
   );
 }
@@ -1487,14 +1487,14 @@ async function placeOrder() {
 
     showStatus(
       "orderStatus",
-      `✅ Order placed! Order ID: ${receipt.events.OrderPlaced.returnValues.orderId}`,
+      `Order placed! Order ID: ${receipt.events.OrderPlaced.returnValues.orderId}`,
       "success"
     );
 
     // Reload orders to show new order
     await loadCustomerOrders(customerAccount);
   } catch (error) {
-    showStatus("orderStatus", `❌ ${error.message}`, "error");
+    showStatus("orderStatus", `${error.message}`, "error");
   }
 }
 
@@ -1522,7 +1522,7 @@ async function confirmOrderDelivery(orderId) {
       gas: 3000000,
     });
 
-    showStatus("orderStatus", "✅ Order placed successfully!", "success");
+    showStatus("orderStatus", "Order placed successfully!", "success");
 
     // Clear cart
     cart = [];
@@ -1532,7 +1532,7 @@ async function confirmOrderDelivery(orderId) {
     loadStoreOrders();
     loadDriverOrders();
   } catch (error) {
-    showStatus("orderStatus", `❌ ${error.message}`, "error");
+    showStatus("orderStatus", `${error.message}`, "error");
   }
 }
 
@@ -1685,13 +1685,13 @@ async function updateOrderStatus(orderId, newStatus) {
       gas: 200000,
     });
 
-    showStatus("connectionStatus", "✅ Status updated!", "success");
+    showStatus("connectionStatus", "Status updated!", "success");
 
     // Refresh all lists
     loadStoreOrders();
     loadDriverOrders();
   } catch (error) {
-    showStatus("connectionStatus", `❌ Error: ${error.message}`, "error");
+    showStatus("connectionStatus", `Error: ${error.message}`, "error");
   }
 }
 
@@ -1708,13 +1708,13 @@ async function acceptDelivery(orderId) {
       gas: 200000,
     });
 
-    showStatus("connectionStatus", "✅ Delivery accepted!", "success");
+    showStatus("connectionStatus", "Delivery accepted!", "success");
 
     // Refresh all lists
     loadStoreOrders();
     loadDriverOrders();
   } catch (error) {
-    showStatus("connectionStatus", `❌ Error: ${error.message}`, "error");
+    showStatus("connectionStatus", `Error: ${error.message}`, "error");
   }
 }
 
@@ -1754,12 +1754,12 @@ async function confirmOrderDelivered(orderId) {
       gas: 3000000,
     });
 
-    showStatus("orderStatus", `✅ Order completed!`, "success");
+    showStatus("orderStatus", `Order completed!`, "success");
 
     // Reload orders to show updated status
     await loadCustomerOrders();
   } catch (error) {
-    showStatus("orderStatus", `❌ ${error.message}`, "error");
+    showStatus("orderStatus", `${error.message}`, "error");
   }
 }
 
@@ -1961,12 +1961,12 @@ async function acceptOrder() {
       .acceptOrder(orderId)
       .send({ from: storeAddr, gas: 3000000 });
 
-    showStatus("storeActionStatus", `✅ Order ${orderId} accepted!`, "success");
+    showStatus("storeActionStatus", `Order ${orderId} accepted!`, "success");
 
     // Reload orders to show updated status
     await loadStoreOrders();
   } catch (error) {
-    showStatus("storeActionStatus", `❌ ${error.message}`, "error");
+    showStatus("storeActionStatus", `${error.message}`, "error");
   }
 }
 
@@ -2005,11 +2005,11 @@ async function markReady() {
       .readyForPickup(orderId)
       .send({ from: storeAddr, gas: 3000000 });
 
-    showStatus("storeActionStatus", `✅ Order ${orderId} ready!`, "success");
+    showStatus("storeActionStatus", `Order ${orderId} ready!`, "success");
 
     await loadStoreOrders();
   } catch (error) {
-    showStatus("storeActionStatus", `❌ ${error.message}`, "error");
+    showStatus("storeActionStatus", `${error.message}`, "error");
   }
 }
 
@@ -2049,11 +2049,11 @@ async function cancelOrder() {
       .cancelOrder(orderId)
       .send({ from: storeAddr, gas: 3000000 });
 
-    showStatus("storeActionStatus", `✅ Order cancelled!`, "success");
+    showStatus("storeActionStatus", `Order cancelled!`, "success");
 
     await loadStoreOrders();
   } catch (error) {
-    showStatus("storeActionStatus", `❌ ${error.message}`, "error");
+    showStatus("storeActionStatus", `${error.message}`, "error");
   }
 }
 
@@ -2190,13 +2190,13 @@ async function pickupOrder() {
 
     showStatus(
       "driverActionStatus",
-      `✅ Order ${orderId} picked up!`,
+      `Order ${orderId} picked up!`,
       "success"
     );
 
     await loadAvailableDeliveries();
   } catch (error) {
-    showStatus("driverActionStatus", `❌ ${error.message}`, "error");
+    showStatus("driverActionStatus", `${error.message}`, "error");
   }
 }
 
@@ -2222,13 +2222,13 @@ async function markDelivered() {
 
     showStatus(
       "driverActionStatus",
-      `✅ Order ${orderId} delivered!`,
+      `Order ${orderId} delivered!`,
       "success"
     );
 
     await loadAvailableDeliveries();
   } catch (error) {
-    showStatus("driverActionStatus", `❌ ${error.message}`, "error");
+    showStatus("driverActionStatus", `${error.message}`, "error");
   }
 }
 
@@ -2393,7 +2393,7 @@ async function loadOwnerDashboard() {
     // Load platform statistics
     await loadPlatformStats();
   } catch (error) {
-    showStatus("ownerActionStatus", `❌ ${error.message}`, "error");
+    showStatus("ownerActionStatus", `${error.message}`, "error");
   }
 }
 
@@ -2530,7 +2530,7 @@ async function withdrawFees() {
 
     showStatus(
       "ownerActionStatus",
-      `✅ Fees withdrawn! Balance increased by ${difference.toFixed(
+      `Fees withdrawn! Balance increased by ${difference.toFixed(
         4
       )} ETH (minus gas fees)`,
       "success"
@@ -2545,6 +2545,6 @@ async function withdrawFees() {
     // Reload dashboard
     await loadOwnerDashboard();
   } catch (error) {
-    showStatus("ownerActionStatus", `❌ ${error.message}`, "error");
+    showStatus("ownerActionStatus", `${error.message}`, "error");
   }
 }

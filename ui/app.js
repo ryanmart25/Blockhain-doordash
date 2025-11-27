@@ -1,676 +1,558 @@
-// app.js
+// MealDispatch - Main Application JavaScript
+// This file handles initialization, Web3/IPFS connections, and core application logic
 
-// paste your deployed address here (or enter in UI)
-let CONTRACT_ADDRESS = '';
+// ==================== GLOBAL VARIABLES ====================
 
-const STATUS = ["Placed","Accepted","ReadyForPickup","OnDelivery","Delivered","Completed","Canceled"];
+// Web3 instance for blockchain interaction
+let web3;
 
-// state
-let web3, accounts = [], contract, abi;
+// Smart contract instance
+let contract;
 
-// dom helpers
-const $ = (id) => document.getElementById(id);
-const set = (id, text) => { $(id).textContent = text; };
-const setHTML = (el, html) => { el.innerHTML = html; };
-const isAddr = (a) => /^0x[a-fA-F0-9]{40}$/.test(a);
-const asWei =(n) => { try { return BigInt(n || 0); } catch { return 0n; } };
-const sumWei = (...xs) => xs.reduce((a, b) => a + asWei(b), 0n);
+// IPFS client instance for decentralized file storage
+let ipfs;
 
+// Array of available Ethereum accounts from Ganache
+let accounts = [];
 
-//Run after DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('DEBUG: app.js loaded and DOM ready!');
+// Currently selected Ethereum account
+let currentAccount = null;
 
-  // Tabs: .tab buttons switch .tabpanel sections by data-tab -> #id
-  function initTabs() {
-    console.log('DEBUG: Initializing tavs');
-    const tabs = document.querySelectorAll('.tab');
-    const panels = document.querySelectorAll('.tabpanel');
-    
-    function activate(name) {
-      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-      panels.forEach(p => p.classList.toggle('active', p.id === name));
-    }
-    
-    tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
-    
-    // initial state (defaults to 'customer' if none marked active)
-    const initial = document.querySelector('.tab.active')?.dataset.tab || 'customer';
-    activate(initial);
-  }
-  initTabs();
+// Shopping cart: stores items customer wants to order
+let cart = [];
 
-  // dom needs to exist before i try to do document queries
- 
-  /*
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initTabs);
-  } else {
-    initTabs();
-  }
-  */
+// Temporary storage for menu items during store creation/editing
+let tempMenuItems = [];
 
-  // tabs
-  document.querySelectorAll('.tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-      document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(btn.dataset.tab).classList.add('active');
-    });
-  });
-  
-  function setStatus(msg) { 
-    set('status', msg);
-    console.log(`DEBUG: Status updated: ${msg}`);  
-  }
-  function logEvent(obj) {
-    const prev = $('events').textContent || "";
-    $('events').textContent = JSON.stringify(obj, null, 2) + "\n" + prev;
-    console.log('DEBUG: Event logged:', obj);
-  }
+// Address of the currently selected store
+let selectedStoreAddress = null;
 
-  /*
-  function asWei(n) { try { return BigInt(n || 0); } catch { return 0n; } }
-  function sumWei(...xs) { return xs.reduce((a,b)=>a+asWei(b), 0n); }
-  */
+// Complete data of the currently selected store (from IPFS)
+let selectedStoreData = null;
 
-  // load abi
-  async function loadABI(){
-    console.log('DEBUG: Loading ABI from abi.json');
+// Order processing fee constant (0.002 ETH charged by platform)
+const ORDER_PROCESSING_FEE = 0.002;
+
+// Delivery fee constant (0.01 ETH paid to driver)
+const DELIVERY_FEE = 0.01;
+
+// IPFS Registry - stores all Content Identifiers (CIDs) locally in browser localStorage
+// This allows the UI to retrieve store/driver/customer information from IPFS
+let ipfsRegistry = {
+  stores: [], // Array of {name, cid} objects
+  drivers: [], // Array of {name, cid} objects
+  customers: [], // Array of {name, cid} objects
+};
+
+// Track which accounts are in use during current session
+let usedAccounts = new Set();
+
+const contractABI = require('./build/contracts/MealDispatchDApp.json').abi;
+
+// Corresponds to OrderState enum in smart contract: Placed(0), Accepted(1), ReadyForPickup(2), OnDelivery(3), Delivered(4), Completed(5), Canceled(6)
+const statusNames = [
+  "Placed",
+  "Accepted (Preparing)",
+  "Ready for Delivery",
+  "On Delivery",
+  "Delivered",
+  "Completed",
+  "Cancelled",
+];
+
+// ==================== INITIALIZATION ====================
+
+/**
+ * Load IPFS Registry from localStorage
+ * The registry stores all CIDs (Content Identifiers) for stores, drivers, and customers
+ * This allows the UI to fetch data from IPFS without needing a separate database
+ */
+function loadIPFSRegistry() {
+  const saved = localStorage.getItem("mealDispatchIPFS");
+  if (saved) {
     try {
-      const response = await fetch('./abi.json');
-      if(!response.ok) throw new Error(`Failed to fetch abi.json (status ${response.status})`);
-      abi = await response.json();
-      console.log('DEBUG: ABI loaded successfully');
-    } catch(error) {
-      console.log('ERROR: ABI load failed:', error);
-      setStatus(`Error loading ABI: ${error.message}`);
-      throw error;
-    }
-  }
-
-  async function ensureConnected() {
-    if (!window.ethereum) throw new Error('Install MetaMask');
-    if (!accounts.length) {
-      accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      web3 = new Web3(window.ethereum);
-      set('acct', accounts[0]);
-      const chainId = await web3.eth.getChainId();
-      set('net', `chainId ${chainId}`);
-      window.ethereum.on('accountsChanged', (accs) => { accounts = accs; set('acct', accounts[0] || 'Not connected'); });
-      window.ethereum.on('chainChanged', () => window.location.reload());
-    }
-     console.log('DEBUG: Connected to MetaMask, account:', accounts[0]);
-  }
-  
-  async function loadContract() {
-    console.log('DEBUG: loadContract started');
-    try {
-      await ensureConnected();
-      await loadABI(); 
-      CONTRACT_ADDRESS = $('contractAddr').value.trim();
-      if (!isAddr(CONTRACT_ADDRESS)) throw new Error('Invalid contract address');
-      contract = new web3.eth.Contract(abi, CONTRACT_ADDRESS);
-      subscribeEvents();
-      await refreshGlobals();
-      await refreshBadges();
-      setStatus('Contract loaded');
-      console.log('DEBUG: Contract loaded at:', CONTRACT_ADDRESS);
+      ipfsRegistry = JSON.parse(saved);
+      log(
+        `Loaded registry: ${ipfsRegistry.stores.length} stores, ${ipfsRegistry.drivers.length} drivers, ${ipfsRegistry.customers.length} customers`
+      );
     } catch (e) {
-      console.error('ERROR in loadContract:', e);
-      setStatus(e.message);
+      log(`Error loading registry: ${e.message}`, "error");
+      // Initialize empty registry if parsing fails
+      ipfsRegistry = { stores: [], drivers: [], customers: [] };
     }
+  }
+}
+
+/**
+ * Save IPFS Registry to localStorage
+ * Persists the registry so it survives page refreshes
+ */
+function saveIPFSRegistry() {
+  try {
+    localStorage.setItem("mealDispatchIPFS", JSON.stringify(ipfsRegistry));
+    log(`Registry saved`);
+  } catch (e) {
+    log(`Error saving registry: ${e.message}`, "error");
+  }
+}
+
+/**
+ * Log messages to console with timestamp and visual formatting
+ * @param {string} message - The message to log
+ * @param {string} type - Type of message: 'info', 'success', or 'error'
+ */
+function log(message, type = "info") {
+  const errorConsole = document.getElementById("errorConsole");
+  if (errorConsole) {
+    errorConsole.classList.remove("hidden");
+    const timestamp = new Date().toLocaleTimeString();
+    // Choose emoji prefix based on message type
+    const prefix = type === "error" ? "❌" : type === "success" ? "✅" : "ℹ️";
+    errorConsole.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+    // Auto-scroll to bottom to show latest messages
+    errorConsole.scrollTop = errorConsole.scrollHeight;
+  }
+  // Also log to browser console for debugging
+  console.log(`[${type}] ${message}`);
+}
+
+/**
+ * Test all connections before initializing
+ * Tests Ganache RPC, IPFS daemon, and smart contract deployment
+ */
+async function testConnections() {
+  const errorConsole = document.getElementById("errorConsole");
+  if (errorConsole) {
+    errorConsole.textContent = "";
+    errorConsole.classList.remove("hidden");
   }
 
-  /*
-  async function loadContract() {
-    CONTRACT_ADDRESS = $('contractAddr').value.trim();
-    if (!isAddr(CONTRACT_ADDRESS)) throw new Error('Invalid contract address');
-    contract = new web3.eth.Contract(abi, CONTRACT_ADDRESS);
-    subscribeEvents();
-    await refreshGlobals();
-    await refreshBadges();
-  }
-  */  
-  
-  // globals
-  async function refreshGlobals() {
-    try {
-      const [own, oc, bal, fees] = await Promise.all([
-        contract.methods.owner().call(),
-        contract.methods.orderCounter().call(),
-        contract.methods.getContractBalance().call(),
-        contract.methods.getProcessingFeesCollected().call(),
-      ]);
-      
-      set('ownerAddr', own);
-      set('orderCounter', String(oc));
-      set('contractBal', `${bal} wei`);
-      set('feesCollected', `${fees} wei`);
-    } catch (e) { setStatus(e.message); }
-  }
-  
-  // events
-  function subscribeEvents() {
-    try {
-      contract.events.OrderPlaced({ fromBlock: "latest" })
-      .on("data", (ev) => logEvent({ OrderPlaced: ev.returnValues }))
-      contract.events.OrderStateChanged({ fromBlock: "latest" })
-      .on("data", (ev) => logEvent({ OrderStateChanged: ev.returnValues }))
-      contract.events.StoreRegistered({ fromBlock: "latest" })
-      .on("data", (ev) => logEvent({ StoreRegistered: ev.returnValues }))
-      contract.events.DriverRegistered({ fromBlock: "latest" })
-      .on("data", (ev) => logEvent({ DriverRegistered: ev.returnValues }))
-      contract.events.PaymentReceived({ fromBlock: "latest" })
-      .on("data", (ev) => logEvent({ PaymentReceived: ev.returnValues }))
-      contract.events.ProcessingFeeWithdrawn({ fromBlock: "latest" })
-      .on("data", (ev) => logEvent({ ProcessingFeeWithdrawn: ev.returnValues }))
-    } catch (_) { /* ignore */ }
-  }
-  
-  // general UI wiring
-  $('connectBtn').addEventListener('click', async () => { try { await ensureConnected(); setStatus('connected'); } catch(e){ setStatus(e.message);} });
-  $('loadContractBtn').addEventListener('click', async () => { try { await ensureConnected(); await loadContract(); setStatus('contract loaded'); } catch(e){ setStatus(e.message);} });
-  $('refreshGlobalsBtn').addEventListener('click', refreshGlobals);
-  $('inspectOrderBtn').addEventListener('click', async () => {
-    try {
-      const id = Number($('inspectOrderId').value || 0);
-      if (!id) throw new Error('enter a valid orderId');
-      const o = await contract.methods.orders(id).call();
-      o.statusName = STATUS[Number(o.status)] || String(o.status);
-      $('inspectOrderJson').textContent = JSON.stringify(o, null, 2);
-    } catch(e){ setStatus(e.message); }
-  });
-  
-  // role badges
-  async function refreshBadges() {
-    if (!contract || !accounts.length) return;
-    try {
-      const [s, d] = await Promise.all([
-        contract.methods.isStoreRegistered(accounts[0]).call(),
-        contract.methods.isDriverRegistered(accounts[0]).call(),
-      ]);
-      const storeTag = $('storeRegState');
-      storeTag.textContent = s ? 'registered' : 'not registered';
-      storeTag.className = `pill ${s ? 'ok' : 'warn'}`;
-      const driverTag = $('driverRegState');
-      driverTag.textContent = d ? 'registered' : 'not registered';
-      driverTag.className = `pill ${d ? 'ok' : 'warn'}`;
-      console.log('DEBUG: Badges refreshed');
-    } catch (e){
-      console.error('ERROR in refreshBadges:', e);
-    }
-  }
-  
-  /////////////////////////////
-  //// CUSTOMER: menus and cart
-  ////////////////////////////////
-  
-  //// menus are off-chain and per store address
-  const Menu = {
-    key(addr){ return `menu:${addr.toLowerCase()}`; },
-    load(addr){ try { return JSON.parse(localStorage.getItem(this.key(addr)) || '[]'); } catch { return []; } },
-    save(addr, items){ localStorage.setItem(this.key(addr), JSON.stringify(items)); }
-  };
-  
-  const Cart = {
-    key(addr, store){ return `cart:${addr.toLowerCase()}:${store.toLowerCase()}`; },
-    load(addr, store){ try { return JSON.parse(localStorage.getItem(this.key(addr,store)) || '[]'); } catch { return []; } },
-    save(addr, store, rows){ localStorage.setItem(this.key(addr,store), JSON.stringify(rows)); },
-    clear(addr, store){ localStorage.removeItem(this.key(addr,store)); }
-  };
+  log("======================================");
+  log("STARTING CONNECTION TESTS");
+  log("======================================\n");
 
-  let currentCustomerStore = '';
-  let cartRows = [];
-  
-  $('loadMenuBtn').addEventListener('click', async () => {
-    try {
-      await ensureConnected();
-      const store = $('customerStoreAddr').value.trim();
-      if (!isAddr(store)) throw new Error('enter a valid store address');
-      currentCustomerStore = store;
-      renderMenu(store);
-      cartRows = Cart.load(accounts[0], store);
-      renderCart();
-    } catch(e){ 
-      console.error('ERROR in loadMenuBtn:', e);
-      setStatus(e.message); 
-    }
-  });
-  
-  function renderMenu(store) {
-    console.log('DEBUG: Rendering menu from the store:', store);
-    const items = Menu.load(store);
-    if (!items.length) {
-      setHTML($('menuList'), `<div class="muted">No menu yet for this store. Ask the owner to create one in the Restaurant Owner tab.</div>`);
-      return;
-    }
-    const html = items.map((it, idx) => `
-      <div class="menu-item">
-        <div>
-          <div>${it.name}</div>
-          <div class="muted mono">${it.price} wei</div>
-        </div>
-        <div>
-          <button data-idx="${idx}" class="addToCartBtn">Add</button>
-        </div>
-      </div>
-    `).join('');
-    setHTML($('menuList'), html);
-    document.querySelectorAll('.addToCartBtn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const i = Number(btn.dataset.idx);
-        const items = Menu.load(store);
-        const item = items[i];
-        const found = cartRows.find(r => r.name === item.name && r.price === item.price);
-        if (found) found.qty += 1; else cartRows.push({ name:item.name, price:item.price, qty:1 });
-        Cart.save(accounts[0], store, cartRows);
-        renderCart();
-      });
+  // TEST 1: Test Ganache connection
+  log("🔍 TEST 1: Testing Ganache...");
+  try {
+    const rpcUrlInput = document.getElementById("rpcUrl");
+    if (!rpcUrlInput) throw new Error("RPC URL input not found");
+    const rpcUrl = rpcUrlInput.value;
+    log(`  RPC URL: ${rpcUrl}`);
+
+    // Create temporary Web3 instance for testing
+    const testWeb3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
+    const networkId = await testWeb3.eth.net.getId();
+    log(`  ✅ Connected! Network ID: ${networkId}`, "success");
+
+    // Check if accounts are available
+    const testAccounts = await testWeb3.eth.getAccounts();
+    log(`  ✅ Found ${testAccounts.length} accounts`, "success");
+  } catch (e) {
+    log(`  ❌ FAILED: ${e.message}`, "error");
+    return;
+  }
+
+  // TEST 2: Test IPFS connection
+  log("\n🔍 TEST 2: Testing IPFS...");
+  try {
+    const ipfsUrlInput = document.getElementById("ipfsUrl");
+    if (!ipfsUrlInput) throw new Error("IPFS URL input not found");
+    const ipfsUrl = ipfsUrlInput.value;
+    // Test IPFS by calling id endpoint which is more reliable
+    const response = await fetch(`${ipfsUrl}/api/v0/id`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+      },
     });
-  }
-  
-  function renderCart() {
-    console.log('DEBUG: Rendering cart');
-    if (!currentCustomerStore) return;
-    if (!cartRows.length) {
-      setHTML($('cartList'), `<div class="muted">Cart is empty</div>`);
+
+    if (response.ok) {
+      const data = await response.json();
+      log(`IPFS Ready! ID: ${data.ID.substring(0, 20)}...`, "success");
     } else {
-      setHTML($('cartList'), cartRows.map((r, idx) => `
-        <div class="cart-row">
-          <div>
-            <div>${r.name} × ${r.qty}</div>
-            <div class="muted mono">${r.price} wei each</div>
-          </div>
-          <div class="row">
-            <span class="mono">${(asWei(r.price)*BigInt(r.qty)).toString()} wei</span>
-            <button data-i="${idx}" class="decBtn">−</button>
-            <button data-i="${idx}" class="incBtn">+</button>
-            <button data-i="${idx}" class="rmBtn">Remove</button>
-          </div>
-        </div>
-      `).join(''));
-      document.querySelectorAll('.decBtn').forEach(b=>b.addEventListener('click',()=>{ 
-         console.log('DEBUG: Decrease qty for cart item:', b.dataset.i); 
-        const i=Number(b.dataset.i); if(cartRows[i].qty>1) cartRows[i].qty--; else cartRows.splice(i,1); Cart.save(accounts[0], currentCustomerStore, cartRows); renderCart(); 
-      }));
-      document.querySelectorAll('.incBtn').forEach(b=>b.addEventListener('click',()=>{ 
-        console.log('DEBUG: Increase qty for cart item:', b.dataset.i); 
-        const i=Number(b.dataset.i); cartRows[i].qty++; Cart.save(accounts[0], currentCustomerStore, cartRows); renderCart(); 
-      }));
-      document.querySelectorAll('.rmBtn').forEach(b=>b.addEventListener('click',()=>{
-        console.log('DEBUG: Remove cart item:', b.dataset.i);  
-        const i=Number(b.dataset.i); cartRows.splice(i,1); Cart.save(accounts[0], currentCustomerStore, cartRows); renderCart(); 
-      }));
+      throw new Error(`HTTP ${response.status}`);
     }
-    const subtotal = cartRows.reduce((a,r)=>a + asWei(r.price)*BigInt(r.qty), 0n);
+  } catch (e) {
+    // Try alternative check
+    try {
+      const ipfsUrlInput = document.getElementById("ipfsUrl");
+      if (ipfsUrlInput) {
+        const testIpfs = window.IpfsHttpClient.create({
+          host: "127.0.0.1",
+          port: 5001,
+          protocol: "http",
+        });
+        const version = await testIpfs.version();
+        log(`IPFS Ready! Version: ${version.version}`, "success");
+      }
+    } catch (e2) {
+      log(`IPFS check inconclusive (may still work)`, "info");
+    }
+  }
 
-    set('cartSubtotal', subtotal.toString());
-    recomputeTotal();
-  }
-  
-  $('clearCartBtn').addEventListener('click', () => {
-    console.log('DEBUG: clearCartBtn clicked');
-    cartRows = [];
-    if (currentCustomerStore && accounts[0]) Cart.clear(accounts[0], currentCustomerStore);
-    renderCart();
-  });
-  
-  ['tipRestaurant','tipDriver','deliveryFee','processingFee'].forEach(id => {
-    $(id).addEventListener('input', () => {
-      console.log(`DEBUG: Input changed for ${id}`);
-      recomputeTotal();
-    });
-  });
-  
-  function recomputeTotal() {
-    const subtotal = asWei($('cartSubtotal').textContent);
-    const tipR = asWei($('tipRestaurant').value);
-    const tipD = asWei($('tipDriver').value);
-    const dFee = asWei($('deliveryFee').value);
-    const pFee = asWei($('processingFee').value);
-    const total = subtotal + tipR + dFee + tipD + pFee;
-    set('cartTotal', total.toString());
-  }
-  
-  $('checkoutBtn').addEventListener('click', async () => {
-    console.log('DEBUG: checkoutBtn clicked');
+  // TEST 3: Test Smart Contract deployment
+  log("\nTEST 3: Testing Contract...");
+  const contractAddrInput = document.getElementById("contractAddress");
+
+  if (!contractAddrInput || !contractAddrInput.value) {
+    log(`No contract address`, "error");
+  } else {
     try {
-      await ensureConnected();
-      if (!contract) throw new Error('load contract first');
-      if (!currentCustomerStore) throw new Error('select a restaurant');
-      if (!cartRows.length) throw new Error('cart is empty');
-      
-      const foodTotal = asWei($('cartSubtotal').textContent).toString();
-      const foodTip = asWei($('tipRestaurant').value).toString();
-      const deliveryFee = asWei($('deliveryFee').value).toString();
-      const deliveryTip = asWei($('tipDriver').value).toString();
-      const processingFee = asWei($('processingFee').value).toString();
-      const msgValue = (sumWei(foodTotal, foodTip, deliveryFee, deliveryTip, processingFee)).toString();
-      
-      setStatus('sending placeOrder...');
-      const tx = await contract.methods.placeOrder(
-        currentCustomerStore,
-        foodTotal, foodTip, deliveryFee, deliveryTip, processingFee
-      ).send({ from: accounts[0], value: msgValue });
-      
-      const ev = tx.events?.OrderPlaced?.returnValues;
-      $('checkoutMsg').textContent = ev ? `Order placed successfully. orderId ${ev.orderId}` : 'Order placed successfully.';
-      setStatus(`placed in block ${tx.blockNumber}`);
-      console.log('DEBUG: Order placed successfully');
-      
-      // optional: clear cart after success
-      cartRows = [];
-      Cart.clear(accounts[0], currentCustomerStore);
-      renderCart();
-      await refreshMyOrders();
-      await refreshGlobals();
-    } catch(e){ 
-      console.error('ERROR in checkout:', e);
-      setStatus(e.message); 
+      const contractAddr = contractAddrInput.value;
+      const rpcUrlInput = document.getElementById("rpcUrl");
+      const testWeb3 = new Web3(
+        new Web3.providers.HttpProvider(rpcUrlInput.value)
+      );
+      // Get bytecode at the contract address
+      const code = await testWeb3.eth.getCode(contractAddr);
+
+      // Check if contract exists (bytecode should not be empty)
+      if (code === "0x" || code === "0x0") {
+        log(`No contract at address`, "error");
+      } else {
+        log(`  ✅ Contract Found!`, "success");
+      }
+    } catch (e) {
+      log(`Error: ${e.message}`, "error");
     }
-  });
-  
-  $('refreshMyOrdersBtn').addEventListener('click', () => {
-    console.log('DEBUG: refreshMyOrdersBtn clicked');
-    refreshMyOrders();
-  });
-  async function refreshMyOrders() {
+  }
+
+  log("\n======================================");
+  log("TESTS COMPLETE");
+  log("======================================");
+}
+
+/**
+ * Initialize all connections (Web3, IPFS, Smart Contract)
+ * This function must be called before using the application
+ */
+async function initializeConnections() {
+  try {
+    log("\nINITIALIZING...");
+
+    // Get connection parameters from input fields
+    const rpcUrlInput = document.getElementById("rpcUrl");
+    const ipfsUrlInput = document.getElementById("ipfsUrl");
+    const contractAddrInput = document.getElementById("contractAddress");
+
+    if (!rpcUrlInput || !ipfsUrlInput || !contractAddrInput) {
+      throw new Error("Connection inputs not found");
+    }
+
+    const rpcUrl = rpcUrlInput.value;
+    const ipfsUrl = ipfsUrlInput.value;
+    const contractAddr = contractAddrInput.value;
+
+    // Validate contract address is provided
+    if (!contractAddr) throw new Error("Enter contract address");
+
+    // Initialize Web3 with Ganache provider
+    log("Connecting to Ganache...");
+    web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
+    accounts = await web3.eth.getAccounts();
+    currentAccount = accounts[0];
+    log(`✅ Web3: ${accounts.length} accounts`, "success");
+
+    // Initialize Smart Contract instance
+    log("Loading contract...");
+    contract = new web3.eth.Contract(contractABI, contractAddr);
+    // Test contract by reading orderCounter
+    const orderCount = await contract.methods.orderCounter().call();
+    log(`✅ Contract: ${orderCount} orders`, "success");
+
+    // Initialize IPFS client
+    log("Connecting to IPFS...");
+    ipfs = window.IpfsHttpClient.create({
+      host: "127.0.0.1",
+      port: 5001,
+      protocol: "http",
+    });
+    // Store API URL for later use in getIPFSImageURL()
+    ipfs.apiUrl = ipfsUrl;
+    // Test IPFS connection by getting version
+    const version = await ipfs.version();
+    log(`✅ IPFS: v${version.version}`, "success");
+
+    // Load saved IPFS registry from localStorage
+    loadIPFSRegistry();
+
+    // Display Ganache accounts with balances
+    await displayAccounts();
+
+    // Populate all dropdown menus with data
+    await populateAllDropdowns();
+
+    // Show success message
+    showStatus("connectionStatus", "✅ ALL CONNECTED!", "success");
+    log("\n✅ READY TO USE!\n", "success");
+  } catch (error) {
+    log(`\n❌ FAILED: ${error.message}`, "error");
+    showStatus("connectionStatus", `❌ Failed: ${error.message}`, "error");
+  }
+}
+
+/**
+ * Display all Ganache accounts with their balances
+ */
+async function displayAccounts() {
+  const list = document.getElementById("accountsList");
+  if (!list) return; // Guard clause if element doesn't exist
+
+  let html = "";
+
+  // Iterate through all accounts and get their ETH balance
+  for (let i = 0; i < accounts.length; i++) {
+    const balance = await web3.eth.getBalance(accounts[i]);
+    const balanceEth = web3.utils.fromWei(balance, "ether");
+    html += `<div class="order-card">
+            <strong>Account ${i}:</strong> ${accounts[i]}<br>
+            <small>Balance: ${parseFloat(balanceEth).toFixed(4)} ETH</small>
+        </div>`;
+  }
+  list.innerHTML = html;
+}
+
+/**
+ * Populate all dropdown menus in the application
+ * Called after successful connection initialization
+ */
+async function populateAllDropdowns() {
+  // Rebuild address maps from blockchain and IPFS
+  await rebuildAddressMaps();
+
+  // Populate account dropdowns (for store and driver registration)
+  populateAccountDropdowns();
+
+  // Populate all entity-specific dropdowns
+  populateExistingStoresDropdown();
+  populateExistingDriversDropdown();
+  populateExistingCustomersDropdown();
+  populateRegisterStoreDropdown();
+  populateRegisterDriverDropdown();
+  populateCustomerNamesDropdown();
+  await populateDriverNamesDropdown();
+  await populateStoreManageDropdown();
+}
+
+/**
+ * Rebuild address maps by checking blockchain registrations
+ * and matching with IPFS registry
+ */
+async function rebuildAddressMaps() {
+  for (const account of accounts) {
     try {
-      await ensureConnected();
-      if (!contract) return;
-      const ids = await contract.methods.getCustomerOrders(accounts[0]).call();
-      const cards = await Promise.all(ids.map(async id => {
-        const o = await contract.methods.orders(id).call();
-        const st = STATUS[Number(o.status)] || String(o.status);
-        return `
-          <div class="order-row">
-            <div>
-              <div>#${id} • ${st}</div>
-              <div class="muted mono">store ${o.store}</div>
-              <div class="muted mono">driver ${o.driver}</div>
-            </div>
-            <div>
-              <div class="mono badge">foodTotal ${o.foodTotal}</div>
-              <div class="mono badge">tips r:${o.foodTip} d:${o.deliveryTip}</div>
-              <div class="mono badge">deliveryFee ${o.deliveryFee}</div>
-            </div>
-          </div>`;
-        }));
-        
-        setHTML($('myOrders'), cards.join('') || `<div class="muted">No orders yet.</div>`);
-        console.log('DEBUG: My orders refreshed');
-      } catch(e){ 
-        console.error('ERROR in refreshMyOrders:', e);
-        setStatus(e.message); 
-      }
-    }
-    
-    ////////////////////////////////////////
-    //// RESTAURANT OWNER: registration/menu
-    //////////////////////////////////////////
-    
-    $('registerStoreBtn').addEventListener('click', async () => {
-      console.log('DEBUG: registerStoreBtn clicked');
-      try {
-        await ensureConnected();
-        const tx = await contract.methods.registerStore().send({ from: accounts[0] });
-        setStatus(`store registered in block ${tx.blockNumber}`);
-        await refreshBadges();
-        console.log('DEBUG: Store registered');
-      } catch(e){
-        console.error('ERROR in registerStore:', e);
-        setStatus(e.message); 
-      }
-    });
-    
-    $('loadOwnerMenuBtn').addEventListener('click', () => {
-      console.log('DEBUG: loadOwnerMenuBtn clicked');
-      const a = $('ownerStoreAddr').value.trim();
-      if (!isAddr(a)) { setStatus('enter a valid store address'); return; }
-      renderOwnerMenu(a);
-    });
-    
-    $('addMenuItemBtn').addEventListener('click', () => {
-      console.log('DEBUG: addMenuItemBtn clicked');
-      const addr = $('ownerStoreAddr').value.trim();
-      if (!isAddr(addr)) { setStatus('enter your store address'); return; }
-      const name = $('menuItemName').value.trim();
-      const price = $('menuItemPrice').value.trim();
-      if (!name || !price) { setStatus('enter name and price'); return; }
-      const items = Menu.load(addr);
-      items.push({ name, price });
-      Menu.save(addr, items);
-      $('menuItemName').value = ''; $('menuItemPrice').value = '';
-      renderOwnerMenu(addr);
-    });
-    
-    $('saveMenuBtn').addEventListener('click', () => {
-      console.log('DEBUG: saveMenuBtn clicked');
-      const addr = $('ownerStoreAddr').value.trim();
-      if (!isAddr(addr)) { setStatus('enter your store address'); return; }
-      setStatus('menu saved');
-    });
-    
-    function renderOwnerMenu(addr) {
-      console.log('DEBUG: Rendering owner menu for:', addr);
-      const items = Menu.load(addr);
-      if (!items.length) {
-        setHTML($('ownerMenuList'), `<div class="muted">No items yet.</div>`);
-        return;
-      }
-      
-      setHTML($('ownerMenuList'), items.map((it, i) => `
-        <div class="menu-row">
-          <div>
-            <div>${it.name}</div>
-            <div class="muted mono">${it.price} wei</div>
-          </div>
-          <div class="row">
-            <button data-i="${i}" class="editItemBtn">Edit</button>
-            <button data-i="${i}" class="delItemBtn">Delete</button>
-          </div>
-        </div>
-        `).join(''));
-        document.querySelectorAll('.delItemBtn').forEach(b => b.addEventListener('click', () => {
-          console.log('DEBUG: Delete menu item:', b.dataset.i);
-          const i = Number(b.dataset.i); const items = Menu.load(addr); items.splice(i,1); Menu.save(addr, items); renderOwnerMenu(addr);
-        }));
-        document.querySelectorAll('.editItemBtn').forEach(b => b.addEventListener('click', () => {
-          console.log('DEBUG: Edit menu item:', b.dataset.i);
-          const i = Number(b.dataset.i); const items = Menu.load(addr);
-          const newName = prompt('New name', items[i].name) ?? items[i].name;
-          const newPrice = prompt('New price wei', items[i].price) ?? items[i].price;
-          items[i] = { name:newName, price:newPrice };
-          Menu.save(addr, items); renderOwnerMenu(addr);
-        }));
-      }
-      
-      // store order lists by status
-      const storeStatusBtns = [
-        ['storeOrdersPlacedBtn', 0],
-        ['storeOrdersAcceptedBtn', 1],
-        ['storeOrdersReadyBtn', 2],
-        ['storeOrdersOnDeliveryBtn', 3],
-        ['storeOrdersDeliveredBtn', 4],
-        ['storeOrdersCompletedBtn', 5],
-        ['storeOrdersCanceledBtn', 6],
-      ];
-      storeStatusBtns.forEach(([id, st]) => {
-        $(id).addEventListener('click', async () => {
-          console.log(`DEBUG: Store status button clicked: ${id} (status ${st})`);
-          try {
-            await ensureConnected();
-            const ids = await contract.methods.getStoreOrdersIdsByStatus(accounts[0], st).call();
-            const rows = await Promise.all(ids.map(async (oid) => {
-              const o = await contract.methods.orders(oid).call();
-              return `
-                <div class="order-row">
-                  <div>
-                    <div>#${oid} • ${STATUS[Number(o.status)]}</div>
-                    <div class="muted mono">customer ${o.customer}</div>
-                    <div class="muted mono">driver ${o.driver}</div>
-                  </div>
-                  <div class="order-actions">
-                    <button data-oid="${oid}" class="inspectBtn">Inspect</button>
-                  </div>
-                </div>`;
-              }));
-              setHTML($('storeOrders'), rows.join('') || `<div class="muted">No orders in this status.</div>`);
-              document.querySelectorAll('.inspectBtn').forEach(btn => btn.addEventListener('click', async () => {
-                console.log('DEBUG: Inspect order:', btn.dataset.oid);
-                const id = Number(btn.dataset.oid);
-                const o = await contract.methods.orders(id).call();
-                o.statusName = STATUS[Number(o.status)];
-                alert(`Order #${id}\n\nstore: ${o.store}\ncustomer: ${o.customer}\ndriver: ${o.driver}\nfoodTotal: ${o.foodTotal}\nfoodTip: ${o.foodTip}\ndeliveryFee: ${o.deliveryFee}\ndeliveryTip: ${o.deliveryTip}\nprocessingFee: ${o.processingFee}\nstatus: ${o.statusName}`);
-              }));
-            } catch(e){
-              console.error('ERROR in store status fetch:', e);
-              setStatus(e.message); 
-            }
-          });
-        });
-              
-        // store order actions
-        $('acceptBtn').addEventListener('click', async () => {
-          console.log('DEBUG: acceptBtn clicked');
-          try {
-            await ensureConnected();
-              const id = Number($('actAcceptId').value || 0);
-              if (!id) throw new Error('enter orderId');
-              const tx = await contract.methods.acceptOrder(id).send({ from: accounts[0] });
-              setStatus(`accepted in block ${tx.blockNumber}`);
-          } catch(e){
-            console.error('ERROR in acceptOrder:', e); 
-            setStatus(e.message); 
-          }
-        });
-        $('readyBtn').addEventListener('click', async () => {
-          console.log('DEBUG: readyBtn clicked');
-          try {
-            await ensureConnected();
-            const id = Number($('actReadyId').value || 0);
-            if (!id) throw new Error('enter orderId');
-            const tx = await contract.methods.readyForPickup(id).send({ from: accounts[0] });
-            setStatus(`ready in block ${tx.blockNumber}`);
-          } catch(e){
-            console.error('ERROR in readyForPickup:', e);
-            setStatus(e.message); 
-          }
-        });
-        $('storeCancelBtn').addEventListener('click', async () => {
-          console.log('DEBUG: storeCancelBtn clicked');
-          try {
-            await ensureConnected();
-            const id = Number($('actCancelId').value || 0);
-            if (!id) throw new Error('enter orderId');
-            const tx = await contract.methods.cancelOrder(id).send({ from: accounts[0] });
-            setStatus(`canceled in block ${tx.blockNumber}`);
-          } catch(e){
-            console.error('ERROR in cancelOrder:', e);
-            setStatus(e.message); 
-          }
-        });
-        
-        ////////////////////////
-        //// DRIVER
-        //////////////////////////
-        
-        $('registerDriverBtn').addEventListener('click', async () => {
-          console.log('DEBUG: registerDriverBtn clicked');
-          try {
-            await ensureConnected();
-            const tx = await contract.methods.registerDriver().send({ from: accounts[0] });
-            setStatus(`driver registered in block ${tx.blockNumber}`);
-            await refreshBadges();
-          } catch(e){
-            console.error('ERROR in registerDriver:', e);
-            setStatus(e.message); 
-          }
-        });
-        $('refreshAvailableBtn').addEventListener('click', () => {
-          console.log('DEBUG: refreshAvailableBtn clicked');
-          refreshAvailable();
-        });
-        async function refreshAvailable() {
-          try {
-            await ensureConnected();
-            const ids = await contract.methods.getAvailableOrderIdsForDelivery().call();
-            const rows = await Promise.all(ids.map(async id => {
-              const o = await contract.methods.orders(id).call();
-              return `
-                <div class="order-row">
-                  <div>
-                    <div>#${id} • ${STATUS[Number(o.status)]}</div>
-                    <div class="muted mono">restaurant ${o.store}</div>
-                    <div class="muted mono">customer ${o.customer}</div>
-                  </div>
-                  <div>
-                    <div class="badge mono">deliveryFee ${o.deliveryFee}</div>
-                    <div class="badge mono">tip ${o.deliveryTip}</div>
-                  </div>
-                </div>
-              `;
-            }));
-            setHTML($('availableOrders'), rows.join('') || `<div class="muted">No available deliveries.</div>`);
-            console.log('DEBUG: Available orders refreshed');
-          } catch(e){
-            console.error('ERROR in refreshAvailable:', e);
-            setStatus(e.message); 
+      // Check stores
+      const isStore = await contract.methods.isStoreRegistered(account).call();
+      if (isStore && !storeAddressMap[account]) {
+        // Try to match with first available store in registry
+        for (const store of ipfsRegistry.stores) {
+          if (!Object.values(storeAddressMap).includes(store.cid)) {
+            storeAddressMap[account] = store.cid;
+            break;
           }
         }
-              
-        $('pickupBtn').addEventListener('click', async () => {
-          console.log('DEBUG: pickupBtn clicked');
-          try {
-            await ensureConnected();
-            const id = Number($('pickupOrderId').value || 0);
-            if (!id) throw new Error('enter orderId');
-            const tx = await contract.methods.pickedUpOrder(id).send({ from: accounts[0] });
-            setStatus(`picked up in block ${tx.blockNumber}`);
-            await refreshAvailable();
-          } catch(e){
-            console.error('ERROR in pickedUpOrder:', e);
-            setStatus(e.message); 
-          }
-        });
-              
-        $('deliveredBtn').addEventListener('click', async () => {
-          console.log('DEBUG: deliveredBtn clicked');
-          try {
-            await ensureConnected();
-            const id = Number($('deliveredOrderId').value || 0);
-            if (!id) throw new Error('enter orderId');
-            const tx = await contract.methods.orderDelivered(id).send({ from: accounts[0] });
-            setStatus(`delivered in block ${tx.blockNumber}`);
-          } catch(e){
-            console.error('ERROR in orderDelivered:', e);
-            setStatus(e.message); 
-          }
-        });
-        
-        // customer final confirmation shortcut for testing
-        $('customerConfirmBtn').addEventListener('click', async () => {
-          console.log('DEBUG: customerConfirmBtn clicked');
-          try {
-            await ensureConnected();
-            const id = Number($('customerConfirmId').value || 0);
-            if (!id) throw new Error('enter orderId');
-            const tx = await contract.methods.confirmOrderDelivered(id).send({ from: accounts[0] });
-            setStatus(`completed in block ${tx.blockNumber}`);
-            await refreshGlobals();
-          } catch(e){
-            console.error('ERROR in confirmOrderDelivered:', e);
-            setStatus(e.message); 
-          }
-        });
+      }
 
-        // global error handler
-        window.addEventListener('error', (event) => {
-          console.error('GLOBAL ERROR:', event.message);
-          setStatus(`Unexpected error: ${event.message}`);
-        });
-        
+      // Check drivers
+      const isDriver = await contract.methods
+        .isDriverRegistered(account)
+        .call();
+      if (isDriver && !driverAddressMap[account]) {
+        // Try to match with first available driver in registry
+        for (const driver of ipfsRegistry.drivers) {
+          if (!Object.values(driverAddressMap).includes(driver.cid)) {
+            driverAddressMap[account] = driver.cid;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+}
+
+/**
+ * Populate account dropdowns with available (unused) accounts
+ */
+function populateAccountDropdowns() {
+  // Mark account[0] as owner and always used
+  if (accounts.length > 0) {
+    usedAccounts.add(accounts[0]);
+  }
+
+  const dropdowns = [
+    "registerStoreAccount",
+    "registerDriverAccount",
+    "customerAccountSelect",
+  ];
+  dropdowns.forEach((id) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    select.innerHTML = '<option value="">Select Account</option>';
+    accounts.forEach((account, index) => {
+      // Skip account[0] (owner) and already used accounts
+      if (index > 0 && !usedAccounts.has(account)) {
+        const option = document.createElement("option");
+        option.value = account;
+        option.textContent = `Account ${index}: ${account.substring(
+          0,
+          10
+        )}...${account.substring(account.length - 8)}`;
+        select.appendChild(option);
+      }
+    });
   });
-    
+
+  // Populate owner account dropdown (only account[0])
+  const ownerSelect = document.getElementById("ownerAccountSelect");
+  if (ownerSelect && accounts.length > 0) {
+    ownerSelect.innerHTML = "";
+    const option = document.createElement("option");
+    option.value = accounts[0];
+    option.textContent = `Account 0 (Owner): ${accounts[0].substring(
+      0,
+      10
+    )}...${accounts[0].substring(accounts[0].length - 8)}`;
+    option.selected = true;
+    ownerSelect.appendChild(option);
+  }
+}
+
+// ==================== UI HELPER FUNCTIONS ====================
+
+/**
+ * Switch between tabs in the application
+ * @param {Event} evt - Click event from tab button
+ * @param {string} tabName - ID of the tab content to display
+ */
+function openTab(evt, tabName) {
+  // Hide all tab contents
+  const contents = document.getElementsByClassName("tab-content");
+  for (let content of contents) {
+    content.classList.remove("active");
+  }
+
+  // Remove active class from all tab buttons
+  const tabs = document.getElementsByClassName("tab");
+  for (let tab of tabs) {
+    tab.classList.remove("active");
+  }
+
+  // Show selected tab content and mark button as active
+  document.getElementById(tabName).classList.add("active");
+  evt.currentTarget.classList.add("active");
+}
+
+/**
+ * Display status message to user
+ * @param {string} elementId - ID of the element to display status in
+ * @param {string} message - Message to display
+ * @param {string} type - Type: 'success', 'error', or 'info'
+ */
+function showStatus(elementId, message, type) {
+  const element = document.getElementById(elementId);
+  element.innerHTML = `<div class="status ${type}">${message}</div>`;
+}
+
+/**
+ * Preview image before uploading to IPFS
+ * @param {string} inputId - ID of file input element
+ * @param {string} previewId - ID of img element for preview
+ */
+function previewImage(inputId, previewId) {
+  const input = document.getElementById(inputId);
+  const preview = document.getElementById(previewId);
+
+  if (input.files && input.files[0]) {
+    // Use FileReader to read file as data URL
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      preview.src = e.target.result;
+      preview.style.display = "block";
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+// ==================== IPFS FUNCTIONS ====================
+
+/**
+ * Upload a file (image) to IPFS
+ * @param {File} file - File object to upload
+ * @returns {Promise<string>} - IPFS CID (Content Identifier)
+ */
+async function uploadFileToIPFS(file) {
+  try {
+    const result = await ipfs.add(file);
+    return result.path;
+  } catch (error) {
+    throw new Error(`IPFS file upload failed: ${error.message}`);
+  }
+}
+
+/**
+ * Upload JSON data to IPFS
+ * @param {Object} data - JavaScript object to upload
+ * @returns {Promise<string>} - IPFS CID (Content Identifier)
+ */
+async function uploadJSONToIPFS(data) {
+  try {
+    const jsonString = JSON.stringify(data, null, 2);
+    const result = await ipfs.add(jsonString);
+    return result.path;
+  } catch (error) {
+    throw new Error(`IPFS JSON upload failed: ${error.message}`);
+  }
+}
+
+/**
+ * Retrieve JSON data from IPFS using CID
+ * @param {string} cid - IPFS Content Identifier
+ * @returns {Promise<Object>} - Parsed JSON object
+ */
+async function getFromIPFS(cid) {
+  try {
+    const chunks = [];
+    // IPFS returns data in chunks, so we need to collect them
+    for await (const chunk of ipfs.cat(cid)) {
+      chunks.push(chunk);
+    }
+    // Combine chunks into single Uint8Array
+    const data = new Uint8Array(
+      chunks.reduce((acc, chunk) => acc + chunk.length, 0)
+    );
+    let offset = 0;
+    for (const chunk of chunks) {
+      data.set(chunk, offset);
+      offset += chunk.length;
+    }
+    // Decode and parse JSON
+    const text = new TextDecoder().decode(data);
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`IPFS retrieval failed: ${error.message}`);
+  }
+}
+
+/**
+ * Generate URL to access IPFS image via HTTP gateway
+ * @param {string} cid - IPFS Content Identifier
+ * @returns {string} - Full URL to image
+ */
+function getIPFSImageURL(cid) {
+  if (!cid) return "";
+  return `${ipfs.apiUrl}/ipfs/${cid}`;
+}
+
+// ==================== INITIALIZATION ON PAGE LOAD ====================
+
+/**
+ * Initialize application when page loads
+ * Sets up event listeners and loads saved registry
+ */
+window.addEventListener("load", () => {
+  log("MealDispatch loaded");
+  log('Click "TEST CONNECTIONS" to begin');
+  loadIPFSRegistry();
+});

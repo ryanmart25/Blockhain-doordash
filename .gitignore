@@ -23,3 +23,19 @@ states/
 
 # wake extension files
 .wake/
+
+# package files
+package-lock.json
+package.json
+
+# build folders/files
+build/
+build/contracts/
+migrations/
+test/
+truffle-config.json
+abi.json
+
+#.gitjgnore
+.gitjgnore
+README.md
