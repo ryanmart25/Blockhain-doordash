@@ -47,7 +47,40 @@ let ipfsRegistry = {
 // Track which accounts are in use during current session
 let usedAccounts = new Set();
 
-const contractABI = require('./build/contracts/MealDispatchDApp.json').abi;
+
+let contractABI = null;  
+
+// to fix load ABI issue. this makes sure ABI is loaded.
+async function ensureABI() {
+  // If already loaded, just return it
+  if (contractABI) return contractABI;
+
+  // 1) If you preload ABI via <script> (e.g., abi.js), use that first
+//   if (window.contractABI && Array.isArray(window.contractABI)) {
+//     contractABI = window.contractABI;
+//     log("Loaded ABI from window.contractABI", "success");
+//     return contractABI;
+//   }
+
+  // 2) Otherwise, fetch the artifact and read `.abi`
+  //    Make sure this path is correct and served by an HTTP server
+  const artifactPath = "./build/contracts/MealDispatchDApp.json";
+  try {
+    const res = await fetch(artifactPath);
+    if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${artifactPath}`);
+    const artifact = await res.json();
+    const abi = artifact.abi ?? artifact;
+    if (!Array.isArray(abi)) throw new Error("ABI missing or malformed");
+    contractABI = abi;
+    log("Loaded ABI from artifact JSON", "success");
+    return contractABI;
+  } catch (err) {
+    throw new Error(
+      `Unable to load ABI. ${err.message}. ` 
+    );
+  }
+}
+
 
 // Corresponds to OrderState enum in smart contract: Placed(0), Accepted(1), ReadyForPickup(2), OnDelivery(3), Delivered(4), Completed(5), Canceled(6)
 const statusNames = [
@@ -60,7 +93,7 @@ const statusNames = [
   "Cancelled",
 ];
 
-// ==================== INITIALIZATION ====================
+// ==================== INITIALIZATION & PERSISTENCE FIXES ====================
 
 /**
  * Load IPFS Registry from localStorage
@@ -95,6 +128,71 @@ function saveIPFSRegistry() {
     log(`Error saving registry: ${e.message}`, "error");
   }
 }
+
+
+/**
+ * Attempts to restore Web3, Contract, and IPFS connections using data saved in localStorage.
+ * This ensures state persists across page loads 
+ */
+async function restoreConnections() {
+    log("Attempting to restore connections from localStorage...");
+    
+    const isConnected = localStorage.getItem('web3_connected') === 'true';
+    const contractAddress = localStorage.getItem('contract_address');
+    const providerUrl = localStorage.getItem('web3_provider_url');
+    const accountsString = localStorage.getItem('ganache_accounts');
+    const abiString = localStorage.getItem('contract_abi');
+    
+    if (!isConnected || !contractAddress || !providerUrl || !accountsString || !abiString) {
+        // Data missing, skip restoration
+        return false;
+    }
+
+    try {
+        // 1. Restore Web3
+        web3 = new Web3(new Web3.providers.HttpProvider(providerUrl));
+        accounts = JSON.parse(accountsString);
+        currentAccount = accounts[0];
+        log(`✅ Web3 restored with ${accounts.length} accounts.`, "success");
+
+        // 2. Restore Contract ABI and Instance
+        contractABI = JSON.parse(abiString);
+        contract = new web3.eth.Contract(contractABI, contractAddress);
+        const orderCount = await contract.methods.orderCounter().call();
+        log(`✅ Contract restored at ${contractAddress.substring(0, 10)}... with ${orderCount} orders.`, "success");
+
+        // 3. Restore IPFS client (using default host/port)
+        // Note: You may need to update the host/port if you use a non-default setup.
+        ipfs = window.IpfsHttpClient.create({
+            host: "127.0.0.1",
+            port: 5001,
+            protocol: "http",
+        });
+        // We cannot easily restore ipfs.apiUrl, so you must ensure your IPFS gateway settings are consistent.
+        // Assuming default for local testing for now.
+
+        // 4. Restore IPFS Registry (already handled by loadIPFSRegistry called in the load listener)
+
+        // 5. Re-run UI updates to reflect restored state
+        await displayAccounts();
+        await populateAllDropdowns();
+
+        showStatus("connectionStatus", "✅ RESTORED FROM LOCAL STORAGE!", "success");
+        log("\n✅ READY TO USE (Restored)!\n", "success");
+        return true; // Restoration succeeded
+
+    } catch (error) {
+        log(`❌ FAILED to restore connections: ${error.message}`, "error");
+        showStatus("connectionStatus", `❌ Failed to restore: ${error.message}`, "error");
+        // Clear broken state so manual connection can be retried
+        localStorage.removeItem('web3_connected');
+        return false;
+    }
+}
+// --- END FIX 2 ---
+
+
+// ==================== LOGGING & CONNECTIONS ====================
 
 /**
  * Log messages to console with timestamp and visual formatting
@@ -253,9 +351,14 @@ async function initializeConnections() {
     currentAccount = accounts[0];
     log(`✅ Web3: ${accounts.length} accounts`, "success");
 
+    
+   //Ensure ABI is loaded BEFORE contract usage 
+    await ensureABI();
+
     // Initialize Smart Contract instance
     log("Loading contract...");
     contract = new web3.eth.Contract(contractABI, contractAddr);
+
     // Test contract by reading orderCounter
     const orderCount = await contract.methods.orderCounter().call();
     log(`✅ Contract: ${orderCount} orders`, "success");
@@ -275,6 +378,19 @@ async function initializeConnections() {
 
     // Load saved IPFS registry from localStorage
     loadIPFSRegistry();
+
+    log("Saving connection data for persistence...");
+    // Save state flag
+    localStorage.setItem('web3_connected', 'true');
+    // Save connection details
+    localStorage.setItem('contract_address', contractAddr);
+    localStorage.setItem('web3_provider_url', rpcUrl);
+    // Save critical data
+    localStorage.setItem('ganache_accounts', JSON.stringify(accounts));
+    localStorage.setItem('contract_abi', JSON.stringify(contractABI));
+    saveIPFSRegistry(); // This function saves the global ipfsRegistry
+    log("✅ Data saved successfully.", "success");
+    // --- END FIX 1 ---
 
     // Display Ganache accounts with balances
     await displayAccounts();
@@ -551,8 +667,15 @@ function getIPFSImageURL(cid) {
  * Initialize application when page loads
  * Sets up event listeners and loads saved registry
  */
-window.addEventListener("load", () => {
+window.addEventListener("load", async () => { // Made function async for await restoreConnections()
   log("MealDispatch loaded");
-  log('Click "TEST CONNECTIONS" to begin');
   loadIPFSRegistry();
+
+
+  const restored = await restoreConnections();
+  if (!restored) {
+    // If restoration failed or no data, prompt user for manual connection
+    log('Click "INITIALIZE" to connect to Ganache and IPFS');
+  }
+
 });

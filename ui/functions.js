@@ -1112,7 +1112,8 @@ async function loadCustomerByName() {
         customerOrdersListDiv.innerHTML = "<p>No orders yet</p>";
       }
 
-      // Don't auto-load stores - wait for user to click Load Restaurants button
+      // FIXED: Auto-load stores when customer has a linked account
+      await loadRegisteredStoresForCustomer();
     }
   } catch (error) {
     profileDiv.innerHTML = `<p class="status error">Error: ${error.message}</p>`;
@@ -1141,8 +1142,74 @@ function linkCustomerAccount() {
   usedAccounts.add(accountAddress);
   populateAccountDropdowns();
 
+  // FIXED: Hide the account selection div after linking
+  const accountSelectDiv = document.getElementById("customerAccountSelectDiv");
+  if (accountSelectDiv) {
+    accountSelectDiv.classList.add("hidden");
+  }
+
+  // FIXED: Load registered stores for customer ordering
+  loadRegisteredStoresForCustomer();
+  
   // Reload customer display
   loadCustomerByName();
+}
+
+/**
+ * Load registered stores into customer order dropdown
+ */
+async function loadRegisteredStoresForCustomer() {
+  const storeSelect = document.getElementById("orderStoreSelect");
+  if (!storeSelect) return;
+
+  try {
+    // Clear existing options except the default
+    storeSelect.innerHTML = '<option value="">Select Store</option>';
+
+    // Check if contract is initialized
+    if (!contract) {
+      console.error("Contract not initialized");
+      showStatus("customerProfileDisplay", "Please connect to blockchain first", "error");
+      return;
+    }
+
+    // Check all accounts for registered stores
+    for (const account of accounts) {
+      try {
+        const isRegistered = await contract.methods
+          .isStoreRegistered(account)
+          .call();
+        
+        if (isRegistered) {
+          const storeCID = storeAddressMap[account];
+          if (storeCID) {
+            const storeData = await getFromIPFS(storeCID);
+            
+            // Add store to dropdown
+            const option = document.createElement("option");
+            option.value = account;
+            option.textContent = storeData.name;
+            option.dataset.storeCID = storeCID; // Store CID for later use
+            storeSelect.appendChild(option);
+          }
+        }
+      } catch (error) {
+        console.error(`Error checking store ${account}:`, error);
+        continue;
+      }
+    }
+
+    // Enable the select if stores are found
+    if (storeSelect.options.length > 1) {
+      storeSelect.disabled = false;
+      showStatus("customerProfileDisplay", "Stores loaded successfully", "success");
+    } else {
+      showStatus("customerProfileDisplay", "No stores available", "warning");
+    }
+  } catch (error) {
+    console.error("Error loading stores:", error);
+    showStatus("customerProfileDisplay", `Error loading stores: ${error.message}`, "error");
+  }
 }
 
 function unlinkCustomerAccount(customerIndex) {
@@ -1512,9 +1579,7 @@ async function confirmOrderDelivery(orderId) {
       `customer_${customerIndex}_account`
     );
     if (!customerAccount) throw new Error("Link wallet first");
-    // Note: In a real app, we would need the customer's private key
-    // Here we use the first account or a specific customer account if we had one
-    // For this demo, we'll use the current default account
+    
 
     await contract.methods.placeOrder(storeAddress, itemIndices).send({
       from: currentAccount,
@@ -1545,8 +1610,6 @@ async function loadStoreOrders() {
   const listDiv = document.getElementById("storeOrdersList");
   if (!listDiv) return;
 
-  // In a real app, we would filter by the logged-in store
-  // Here we'll just show all orders for demo purposes or filter if we can
 
   try {
     const orderCount = await contract.methods.orderCounter().call();
@@ -1718,13 +1781,9 @@ async function acceptDelivery(orderId) {
   }
 }
 
+
 /**
  * Load customer's order history
- * Note: In a real app this would filter by the current customer
- */
-/**
- * Load customer's order history
- * Note: In a real app this would filter by the current customer
  */
 async function loadCustomerOrders() {
   // This function is a placeholder for customer order history
@@ -1740,9 +1799,8 @@ async function confirmOrderDelivered(orderId) {
     const customerIndex = document.getElementById("customerNameSelect").value;
     if (!customerIndex) throw new Error("Select a customer");
 
-    // In a real app, we'd get the account from the customer profile or wallet
-    // For this demo, we'll assume the current account is the customer or we have a way to get it
-    // This part is tricky without a real wallet, so we'll use currentAccount
+   
+    // we'll assume the current account is the customer or we have a way to get it
 
     if (!confirm("Confirm you received the order?")) return;
 
