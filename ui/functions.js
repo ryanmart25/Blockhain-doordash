@@ -1064,7 +1064,7 @@ async function loadCustomerByName() {
       populateAccountDropdowns();
       profileDiv.innerHTML = `<p class="status info">Link an Ethereum account to place orders.</p>`;
     } else {
-      // Display customer profile
+      // Display customer profile 
       accountSelectDiv.classList.add("hidden");
       profileDiv.innerHTML = `
                 <div class="info-card">
@@ -1088,7 +1088,7 @@ async function loadCustomerByName() {
                 </div>
             `;
 
-      // Check if customer has active orders
+      // Check if customer has active orders 
       const orderIds = await contract.methods
         .getCustomerOrders(linkedAccount)
         .call();
@@ -1104,16 +1104,26 @@ async function loadCustomerByName() {
           }
         }
       }
-
-      // Only load and display orders if there are any
-      if (orderIds.length > 0) {
-        startCustomerOrderRefresh(linkedAccount);
+      
+      if (hasActiveOrders) {
+        showStatus(
+          "customerOrdersList",
+          "You have an active order. Cannot place a new one.",
+          "info"
+        );
       } else {
-        customerOrdersListDiv.innerHTML = "<p>No orders yet</p>";
+        // Load the stores only if no active order is found
+        await loadRegisteredStoresForCustomer();
+        showStatus(
+          "customerOrdersList",
+          "Ready to order! Please select a restaurant from the dropdown.",
+          "success"
+        );
       }
+      
+      // Start order tracking 
+      startCustomerOrderRefresh(linkedAccount);
 
-      // FIXED: Auto-load stores when customer has a linked account
-      await loadRegisteredStoresForCustomer();
     }
   } catch (error) {
     profileDiv.innerHTML = `<p class="status error">Error: ${error.message}</p>`;
@@ -1142,13 +1152,13 @@ function linkCustomerAccount() {
   usedAccounts.add(accountAddress);
   populateAccountDropdowns();
 
-  // FIXED: Hide the account selection div after linking
+  //Hide the account selection div after linking
   const accountSelectDiv = document.getElementById("customerAccountSelectDiv");
   if (accountSelectDiv) {
     accountSelectDiv.classList.add("hidden");
   }
 
-  // FIXED: Load registered stores for customer ordering
+  // Load registered stores for customer ordering
   loadRegisteredStoresForCustomer();
   
   // Reload customer display
@@ -1160,55 +1170,56 @@ function linkCustomerAccount() {
  */
 async function loadRegisteredStoresForCustomer() {
   const storeSelect = document.getElementById("orderStoreSelect");
-  if (!storeSelect) return;
+  
+  // Ensure the store select element and web3 contract instance exist
+  if (!storeSelect || !contract) return;
+
+  // Clear existing options, keeping only the default "Select Store"
+  storeSelect.innerHTML = '<option value="">-- Select Store --</option>';
 
   try {
-    // Clear existing options except the default
-    storeSelect.innerHTML = '<option value="">Select Store</option>';
-
-    // Check if contract is initialized
-    if (!contract) {
-      console.error("Contract not initialized");
-      showStatus("customerProfileDisplay", "Please connect to blockchain first", "error");
-      return;
-    }
-
-    // Check all accounts for registered stores
+    showStatus("customerOrdersList", "Fetching registered restaurants...", "info");
+    
+    // Iterate through all Ethereum accounts available to your app (from app.js global 'accounts')
     for (const account of accounts) {
       try {
+        // 1. CRITICAL: Check the smart contract if the account is a registered store
+        // We assume your contract has an isStoreRegistered method
         const isRegistered = await contract.methods
           .isStoreRegistered(account)
           .call();
-        
+
         if (isRegistered) {
-          const storeCID = storeAddressMap[account];
+          // 2. If registered, fetch its IPFS data to get the name
+          // NOTE: You must ensure 'storeAddressMap' is a global map of address -> CID.
+          const storeCID = storeAddressMap[account]; 
+          
           if (storeCID) {
             const storeData = await getFromIPFS(storeCID);
-            
-            // Add store to dropdown
+
+            // 3. Populate the dropdown
             const option = document.createElement("option");
-            option.value = account;
+            option.value = account; // Use the Ethereum address as the value
             option.textContent = storeData.name;
-            option.dataset.storeCID = storeCID; // Store CID for later use
             storeSelect.appendChild(option);
           }
         }
-      } catch (error) {
-        console.error(`Error checking store ${account}:`, error);
+      } catch (innerError) {
+        // Skip this account if there's a Web3/IPFS error for it
+        console.warn(`Could not check or load store for account ${account}: ${innerError.message}`);
         continue;
       }
     }
+    
+    showStatus("customerOrdersList", "Restaurants loaded successfully.", "success");
 
-    // Enable the select if stores are found
-    if (storeSelect.options.length > 1) {
-      storeSelect.disabled = false;
-      showStatus("customerProfileDisplay", "Stores loaded successfully", "success");
-    } else {
-      showStatus("customerProfileDisplay", "No stores available", "warning");
-    }
   } catch (error) {
-    console.error("Error loading stores:", error);
-    showStatus("customerProfileDisplay", `Error loading stores: ${error.message}`, "error");
+    console.error("Error loading registered stores:", error);
+    showStatus(
+      "customerOrdersList",
+      "Failed to load available restaurants from the blockchain.",
+      "error"
+    );
   }
 }
 
