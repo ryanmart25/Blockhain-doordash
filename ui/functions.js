@@ -1254,34 +1254,50 @@ function startCustomerOrderRefresh(customerAddress) {
   }
 }
 
-/**
- * Load and display customer's order history
- * @param {string} customerAddress 
- */
+// Global auto-refresh interval holder
+let customerOrderRefreshInterval = null;
+
 async function loadCustomerOrders(customerAddress) {
   try {
-    // Get order IDs for this customer from smart contract
+    if (!customerAddress) return;
+
+    // Get order IDs for this customer
     const orderIds = await contract.methods
       .getCustomerOrders(customerAddress)
       .call();
 
+    // If no orders, stop refresh and show message
     if (orderIds.length === 0) {
       document.getElementById("customerOrdersList").innerHTML =
         "<p>No orders yet</p>";
+
+      // Stop auto-refresh
+      if (customerOrderRefreshInterval) {
+        clearInterval(customerOrderRefreshInterval);
+        customerOrderRefreshInterval = null;
+      }
       return;
     }
 
+    // Build the order list HTML
     let html = "";
-
     for (const orderId of orderIds) {
       const order = await contract.methods.orders(orderId).call();
       html += await formatOrderCard(orderId, order, true, false);
     }
     document.getElementById("customerOrdersList").innerHTML = html;
+
+    
+    // If there are orders AND no active interval → start refreshing
+    if (!customerOrderRefreshInterval) {
+      customerOrderRefreshInterval = setInterval(() => {
+        loadCustomerOrders(customerAddress);
+      }, 5000); // Refresh every 5 seconds
+    }
+
   } catch (error) {
-    document.getElementById(
-      "customerOrdersList"
-    ).innerHTML = `<p class="status error">Error: ${error.message}</p>`;
+    document.getElementById("customerOrdersList").innerHTML =
+      `<p class="status error">Error: ${error.message}</p>`;
   }
 }
 
@@ -1561,37 +1577,33 @@ async function placeOrder() {
   }
 }
 
-/**
- * Customer confirms order has been delivered
- * Triggers payment distribution to store and driver
- * @param {number} orderId 
- */
+// Customer confirms the order was delivered (status: Delivered -> Completed)
 async function confirmOrderDelivery(orderId) {
   try {
     const customerIndex = document.getElementById("customerNameSelect").value;
-    if (!customerIndex) throw new Error("Select customer profile");
+    if (!customerIndex) throw new Error("Select a customer profile");
 
     const customerAccount = sessionStorage.getItem(
       `customer_${customerIndex}_account`
     );
     if (!customerAccount) throw new Error("Link wallet first");
-    
 
-    await contract.methods.placeOrder(storeAddress, itemIndices).send({
-      from: currentAccount,
-      value: totalPriceWei,
+    // Optional confirmation dialog
+    if (!confirm("Confirm you received the order?")) return;
+
+    showStatus("orderStatus", "Confirming delivery...", "info");
+
+    // Call smart contract confirmOrderDelivered(orderId)
+    await contract.methods.confirmOrderDelivered(orderId).send({
+      from: customerAccount,   // use the linked customer wallet
       gas: 3000000,
     });
 
-    showStatus("orderStatus", "Order placed successfully!", "success");
+    showStatus("orderStatus", "Order completed!", "success");
 
-    // Clear cart
-    cart = [];
-    updateCartDisplay();
-
-    // Refresh order lists
-    loadStoreOrders();
-    loadDriverOrders();
+    // Refresh the customer's orders so UI updates (status changes to Completed
+    // and the Confirm button disappears because status != 4 anymore)
+    await loadCustomerOrders(customerAccount);
   } catch (error) {
     showStatus("orderStatus", `${error.message}`, "error");
   }
@@ -1772,41 +1784,6 @@ async function acceptDelivery(orderId) {
   }
 }
 
-
-/**
- * Load customer's order history
- */
-async function loadCustomerOrders() {
-  // This function is a placeholder for customer order history
-}
-
-/**
- * Confirm order delivery (by customer)
- * @param {number} orderId 
- */
-async function confirmOrderDelivered(orderId) {
-  try {
-    const customerIndex = document.getElementById("customerNameSelect").value;
-    if (!customerIndex) throw new Error("Select a customer");
-
-    if (!confirm("Confirm you received the order?")) return;
-
-    showStatus("orderStatus", "Confirming delivery...", "info");
-
-    // Call smart contract confirmOrderDelivered function
-    await contract.methods.confirmOrderDelivered(orderId).send({
-      from: currentAccount,
-      gas: 3000000,
-    });
-
-    showStatus("orderStatus", `Order completed!`, "success");
-
-    // Reload orders to show updated status
-    await loadCustomerOrders();
-  } catch (error) {
-    showStatus("orderStatus", `${error.message}`, "error");
-  }
-}
 
 // ==================== STORE MANAGEMENT ====================
 
