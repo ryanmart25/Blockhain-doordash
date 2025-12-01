@@ -1,5 +1,3 @@
-// this code was given to me by harry, so that's why it is suddenly copy and pasted.
-
 // MealDispatch - Functions JavaScript File
 // This file contains all UI interaction functions for stores, drivers, customers, and order management
 // Adapted to work with MealDispatchDApp.sol smart contract
@@ -182,7 +180,7 @@ function addMenuItem(itemData = null) {
 
 /**
  * Remove a menu item from the temporary array and refresh display
- * @param {number} index - Index of menu item to remove
+ * @param {number} index 
  */
 function removeMenuItem(index) {
   tempMenuItems.splice(index, 1);
@@ -302,13 +300,11 @@ async function saveStoreToIPFS() {
     if (existingStoreSelect) {
       const existingIndex = existingStoreSelect.value;
       if (existingIndex !== "") {
-        // Update existing store
         ipfsRegistry.stores[existingIndex] = {
           name: name,
           cid: storeCID,
         };
       } else {
-        // Add new store
         ipfsRegistry.stores.push({ name: name, cid: storeCID });
       }
     } else {
@@ -524,7 +520,6 @@ async function populateDriverNamesDropdown() {
             const driverData = await getFromIPFS(driverCID);
             driverName = driverData.name;
           } catch (e) {
-            // Keep default name
           }
         }
 
@@ -1183,29 +1178,23 @@ async function loadRegisteredStoresForCustomer() {
     // Iterate through all Ethereum accounts available to your app (from app.js global 'accounts')
     for (const account of accounts) {
       try {
-        // 1. CRITICAL: Check the smart contract if the account is a registered store
-        // We assume your contract has an isStoreRegistered method
         const isRegistered = await contract.methods
           .isStoreRegistered(account)
           .call();
 
         if (isRegistered) {
-          // 2. If registered, fetch its IPFS data to get the name
-          // NOTE: You must ensure 'storeAddressMap' is a global map of address -> CID.
           const storeCID = storeAddressMap[account]; 
           
           if (storeCID) {
             const storeData = await getFromIPFS(storeCID);
 
-            // 3. Populate the dropdown
             const option = document.createElement("option");
-            option.value = account; // Use the Ethereum address as the value
+            option.value = account; 
             option.textContent = storeData.name;
             storeSelect.appendChild(option);
           }
         }
       } catch (innerError) {
-        // Skip this account if there's a Web3/IPFS error for it
         console.warn(`Could not check or load store for account ${account}: ${innerError.message}`);
         continue;
       }
@@ -1240,7 +1229,6 @@ function unlinkCustomerAccount(customerIndex) {
  * @param {string} customerAddress - Ethereum address of customer
  */
 function startCustomerOrderRefresh(customerAddress) {
-  // Load orders immediately
   loadCustomerOrders(customerAddress);
 
   // Listen for OrderStateChanged events
@@ -1250,12 +1238,10 @@ function startCustomerOrderRefresh(customerAddress) {
         fromBlock: "latest",
       })
       .on("data", async (event) => {
-        // Reload orders when any order state changes
         await loadCustomerOrders(customerAddress);
       })
       .on("error", console.error);
 
-    // Listen for OrderPlaced events
     contract.events
       .OrderPlaced({
         filter: { customer: customerAddress },
@@ -1270,7 +1256,7 @@ function startCustomerOrderRefresh(customerAddress) {
 
 /**
  * Load and display customer's order history
- * @param {string} customerAddress - Ethereum address of customer
+ * @param {string} customerAddress 
  */
 async function loadCustomerOrders(customerAddress) {
   try {
@@ -1286,10 +1272,9 @@ async function loadCustomerOrders(customerAddress) {
     }
 
     let html = "";
-    // Load each order's details
+
     for (const orderId of orderIds) {
       const order = await contract.methods.orders(orderId).call();
-      // formatOrderCard shows confirm button for delivered orders
       html += await formatOrderCard(orderId, order, true, false);
     }
     document.getElementById("customerOrdersList").innerHTML = html;
@@ -1357,8 +1342,8 @@ async function loadAvailableStoresForCustomer() {
 
 /**
  * Select a store and display its menu
- * @param {string} storeAddress - Ethereum address of store
- * @param {string} storeCID - IPFS CID of store data
+ * @param {string} storeAddress 
+ * @param {string} storeCID
  */
 async function selectStore(storeAddress, storeCID) {
   try {
@@ -1426,7 +1411,7 @@ function addToCart(itemIndex) {
 
 /**
  * Remove item from shopping cart
- * @param {number} cartIndex - Index of item in cart array
+ * @param {number} cartIndex
  */
 function removeFromCart(cartIndex) {
   cart.splice(cartIndex, 1);
@@ -1435,8 +1420,8 @@ function removeFromCart(cartIndex) {
 
 /**
  * Update quantity of item in cart
- * @param {number} cartIndex - Index of item in cart array
- * @param {number} newQuantity - New quantity value
+ * @param {number} cartIndex
+ * @param {number} newQuantity 
  */
 function updateCartQuantity(cartIndex, newQuantity) {
   if (newQuantity <= 0) {
@@ -1579,7 +1564,7 @@ async function placeOrder() {
 /**
  * Customer confirms order has been delivered
  * Triggers payment distribution to store and driver
- * @param {number} orderId - Order ID to confirm
+ * @param {number} orderId 
  */
 async function confirmOrderDelivery(orderId) {
   try {
@@ -1628,9 +1613,6 @@ async function loadStoreOrders() {
 
     for (let i = 1; i <= orderCount; i++) {
       const order = await contract.methods.orders(i).call();
-
-      // Only show orders for the current account if it's a store
-      // Or show all for demo
 
       const statusText = [
         "Created",
@@ -1694,8 +1676,6 @@ async function loadDriverOrders() {
     for (let i = 1; i <= orderCount; i++) {
       const order = await contract.methods.orders(i).call();
 
-      // Drivers look for orders with status 2 (Ready) or orders they already claimed
-
       if (
         order.status == 2 ||
         (order.driver === currentAccount && order.status < 4)
@@ -1747,8 +1727,8 @@ async function loadDriverOrders() {
 
 /**
  * Update order status (for stores and drivers)
- * @param {number} orderId - ID of the order
- * @param {number} newStatus - New status code
+ * @param {number} orderId 
+ * @param {number} newStatus 
  */
 async function updateOrderStatus(orderId, newStatus) {
   try {
@@ -1798,20 +1778,16 @@ async function acceptDelivery(orderId) {
  */
 async function loadCustomerOrders() {
   // This function is a placeholder for customer order history
-  // Implementation would be similar to loadStoreOrders but filtered for customer
 }
 
 /**
  * Confirm order delivery (by customer)
- * @param {number} orderId - ID of the order to confirm
+ * @param {number} orderId 
  */
 async function confirmOrderDelivered(orderId) {
   try {
     const customerIndex = document.getElementById("customerNameSelect").value;
     if (!customerIndex) throw new Error("Select a customer");
-
-   
-    // we'll assume the current account is the customer or we have a way to get it
 
     if (!confirm("Confirm you received the order?")) return;
 
@@ -1857,7 +1833,6 @@ async function populateStoreManageDropdown() {
             const storeData = await getFromIPFS(storeCID);
             storeName = storeData.name;
           } catch (e) {
-            // Keep default name
           }
         }
 
@@ -1879,7 +1854,7 @@ async function populateStoreManageDropdown() {
 async function loadStoreInfo() {
   const storeAddr = document.getElementById("storeManageSelect").value;
   const infoDiv = document.getElementById("storeInfoDisplay");
-  if (!infoDiv) return; // Added null check
+  if (!infoDiv) return; 
 
   if (!storeAddr) {
     infoDiv.innerHTML = "";
@@ -1939,7 +1914,7 @@ async function loadStoreOrders() {
     const orderIds = await contract.methods.getStoreOrders(storeAddr).call();
 
     const storeOrdersList = document.getElementById("storeOrdersList");
-    if (!storeOrdersList) return; // Added null check
+    if (!storeOrdersList) return;
 
     if (orderIds.length === 0) {
       storeOrdersList.innerHTML = "<p>No orders</p>";
@@ -1962,21 +1937,19 @@ async function loadStoreOrders() {
 
 /**
  * Filter and display store orders by status
- * @param {number} statusFilter - Order status to filter by (0=Placed, 1=Accepted, 2=ReadyForPickup, etc.)
+ * @param {number} statusFilter
  */
 async function filterStoreOrders(statusFilter) {
   try {
     const storeAddr = document.getElementById("storeManageSelect").value;
     if (!storeAddr) return;
 
-    // Call smart contract function to get orders by status
-    // NOTE: Using getStoreOrdersIdsByStatus (not getStoreOrdersByStatus)
     const orderIds = await contract.methods
       .getStoreOrdersIdsByStatus(storeAddr, statusFilter)
       .call();
 
     const storeOrdersList = document.getElementById("storeOrdersList");
-    if (!storeOrdersList) return; // Added null check
+    if (!storeOrdersList) return; 
 
     if (orderIds.length === 0) {
       storeOrdersList.innerHTML = `<p>No ${statusNames[statusFilter]} orders</p>`;
@@ -2068,8 +2041,7 @@ async function markReady() {
 
     showStatus("storeActionStatus", "Marking ready...", "info");
 
-    // Call smart contract readyForPickup function
-    // NOTE: Using readyForPickup (not markReadyForDelivery)
+    // Call smart contract readyForPickup function   
     await contract.methods
       .readyForPickup(orderId)
       .send({ from: storeAddr, gas: 3000000 });
@@ -2191,7 +2163,6 @@ async function loadDriverInfo() {
 async function loadAvailableDeliveries() {
   try {
     // Call smart contract function to get orders in ReadyForPickup status
-    // NOTE: Using getAvailableOrderIdsForDelivery (not getAvailableDeliveries)
     const orderIds = await contract.methods
       .getAvailableOrderIdsForDelivery()
       .call();
@@ -2199,7 +2170,7 @@ async function loadAvailableDeliveries() {
     const availableDeliveriesList = document.getElementById(
       "availableDeliveriesList"
     );
-    if (!availableDeliveriesList) return; // Added null check
+    if (!availableDeliveriesList) return;
 
     if (orderIds.length === 0) {
       availableDeliveriesList.innerHTML = "<p>No deliveries available</p>";
@@ -2209,7 +2180,6 @@ async function loadAvailableDeliveries() {
     let html = "";
     for (const orderId of orderIds) {
       const order = await contract.methods.orders(orderId).call();
-      // Show pickup and delivery addresses for drivers
       html += await formatOrderCard(orderId, order, false, true);
     }
     availableDeliveriesList.innerHTML = html;
@@ -2252,7 +2222,6 @@ async function pickupOrder() {
     showStatus("driverActionStatus", "Picking up order...", "info");
 
     // Call smart contract pickedUpOrder function
-    // NOTE: Using pickedUpOrder (not pickupOrder)
     await contract.methods
       .pickedUpOrder(orderId)
       .send({ from: driverAddr, gas: 3000000 });
@@ -2284,7 +2253,6 @@ async function markDelivered() {
     showStatus("driverActionStatus", "Marking as delivered...", "info");
 
     // Call smart contract orderDelivered function
-    // NOTE: Using orderDelivered (not markDelivered)
     await contract.methods
       .orderDelivered(orderId)
       .send({ from: driverAddr, gas: 3000000 });
@@ -2305,11 +2273,11 @@ async function markDelivered() {
 
 /**
  * Format order information into HTML card
- * @param {number} orderId - Order ID
- * @param {Object} order - Order object from smart contract
- * @param {boolean} showConfirmButton - Whether to show delivery confirmation button (for customers)
- * @param {boolean} showPickupAddress - Whether to show pickup and delivery addresses (for drivers)
- * @returns {Promise<string>} HTML string for order card
+ * @param {number} orderId 
+ * @param {Object} order 
+ * @param {boolean} showConfirmButton 
+ * @param {boolean} showPickupAddress
+ * @returns {Promise<string>} 
  */
 async function formatOrderCard(
   orderId,
@@ -2317,7 +2285,7 @@ async function formatOrderCard(
   showConfirmButton,
   showPickupAddress = false
 ) {
-  // Get human-readable status name
+
   const status = statusNames[order.status];
 
   // Convert Wei amounts back to ETH for display

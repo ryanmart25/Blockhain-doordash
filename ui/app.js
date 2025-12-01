@@ -37,11 +37,10 @@ const ORDER_PROCESSING_FEE = 0.002;
 const DELIVERY_FEE = 0.01;
 
 // IPFS Registry - stores all Content Identifiers (CIDs) locally in browser localStorage
-// This allows the UI to retrieve store/driver/customer information from IPFS
 let ipfsRegistry = {
-  stores: [], // Array of {name, cid} objects
-  drivers: [], // Array of {name, cid} objects
-  customers: [], // Array of {name, cid} objects
+  stores: [], 
+  drivers: [], 
+  customers: [],
 };
 
 // Track which accounts are in use during current session
@@ -52,18 +51,8 @@ let contractABI = null;
 
 // to fix load ABI issue. this makes sure ABI is loaded.
 async function ensureABI() {
-  // If already loaded, just return it
   if (contractABI) return contractABI;
 
-  // 1) If you preload ABI via <script> (e.g., abi.js), use that first
-//   if (window.contractABI && Array.isArray(window.contractABI)) {
-//     contractABI = window.contractABI;
-//     log("Loaded ABI from window.contractABI", "success");
-//     return contractABI;
-//   }
-
-  // 2) Otherwise, fetch the artifact and read `.abi`
-  //    Make sure this path is correct and served by an HTTP server
   const artifactPath = "./build/contracts/MealDispatchDApp.json";
   try {
     const res = await fetch(artifactPath);
@@ -110,7 +99,6 @@ function loadIPFSRegistry() {
       );
     } catch (e) {
       log(`Error loading registry: ${e.message}`, "error");
-      // Initialize empty registry if parsing fails
       ipfsRegistry = { stores: [], drivers: [], customers: [] };
     }
   }
@@ -130,7 +118,7 @@ function saveIPFSRegistry() {
 }
 
 
-/**
+/*
  * Attempts to restore Web3, Contract, and IPFS connections using data saved in localStorage.
  * This ensures state persists across page loads 
  */
@@ -144,7 +132,6 @@ async function restoreConnections() {
     const abiString = localStorage.getItem('contract_abi');
     
     if (!isConnected || !contractAddress || !providerUrl || !accountsString || !abiString) {
-        // Data missing, skip restoration
         return false;
     }
 
@@ -162,55 +149,44 @@ async function restoreConnections() {
         log(`✅ Contract restored at ${contractAddress.substring(0, 10)}... with ${orderCount} orders.`, "success");
 
         // 3. Restore IPFS client (using default host/port)
-        // Note: You may need to update the host/port if you use a non-default setup.
         ipfs = window.IpfsHttpClient.create({
             host: "127.0.0.1",
             port: 5001,
             protocol: "http",
         });
-        // We cannot easily restore ipfs.apiUrl, so you must ensure your IPFS gateway settings are consistent.
-        // Assuming default for local testing for now.
 
-        // 4. Restore IPFS Registry (already handled by loadIPFSRegistry called in the load listener)
-
-        // 5. Re-run UI updates to reflect restored state
         await displayAccounts();
         await populateAllDropdowns();
 
         showStatus("connectionStatus", "✅ RESTORED FROM LOCAL STORAGE!", "success");
         log("\n✅ READY TO USE (Restored)!\n", "success");
-        return true; // Restoration succeeded
+        return true; 
 
     } catch (error) {
         log(`❌ FAILED to restore connections: ${error.message}`, "error");
         showStatus("connectionStatus", `❌ Failed to restore: ${error.message}`, "error");
-        // Clear broken state so manual connection can be retried
         localStorage.removeItem('web3_connected');
         return false;
     }
 }
-// --- END FIX 2 ---
 
 
 // ==================== LOGGING & CONNECTIONS ====================
 
 /**
  * Log messages to console with timestamp and visual formatting
- * @param {string} message - The message to log
- * @param {string} type - Type of message: 'info', 'success', or 'error'
+ * @param {string} message 
+ * @param {string} type 
  */
 function log(message, type = "info") {
   const errorConsole = document.getElementById("errorConsole");
   if (errorConsole) {
     errorConsole.classList.remove("hidden");
     const timestamp = new Date().toLocaleTimeString();
-    // Choose emoji prefix based on message type
     const prefix = type === "error" ? "❌" : type === "success" ? "✅" : "ℹ️";
     errorConsole.textContent += `[${timestamp}] ${prefix} ${message}\n`;
-    // Auto-scroll to bottom to show latest messages
     errorConsole.scrollTop = errorConsole.scrollHeight;
   }
-  // Also log to browser console for debugging
   console.log(`[${type}] ${message}`);
 }
 
@@ -370,9 +346,8 @@ async function initializeConnections() {
       port: 5001,
       protocol: "http",
     });
-    // Store API URL for later use in getIPFSImageURL()
+    
     ipfs.apiUrl = ipfsUrl;
-    // Test IPFS connection by getting version
     const version = await ipfs.version();
     log(`✅ IPFS: v${version.version}`, "success");
 
@@ -390,7 +365,6 @@ async function initializeConnections() {
     localStorage.setItem('contract_abi', JSON.stringify(contractABI));
     saveIPFSRegistry(); // This function saves the global ipfsRegistry
     log("✅ Data saved successfully.", "success");
-    // --- END FIX 1 ---
 
     // Display Ganache accounts with balances
     await displayAccounts();
@@ -433,10 +407,8 @@ async function displayAccounts() {
  * Called after successful connection initialization
  */
 async function populateAllDropdowns() {
-  // Rebuild address maps from blockchain and IPFS
   await rebuildAddressMaps();
 
-  // Populate account dropdowns (for store and driver registration)
   populateAccountDropdowns();
 
   // Populate all entity-specific dropdowns
@@ -539,8 +511,8 @@ function populateAccountDropdowns() {
 
 /**
  * Switch between tabs in the application
- * @param {Event} evt - Click event from tab button
- * @param {string} tabName - ID of the tab content to display
+ * @param {Event} evt 
+ * @param {string} tabName - 
  */
 function openTab(evt, tabName) {
   // Hide all tab contents
@@ -562,9 +534,9 @@ function openTab(evt, tabName) {
 
 /**
  * Display status message to user
- * @param {string} elementId - ID of the element to display status in
- * @param {string} message - Message to display
- * @param {string} type - Type: 'success', 'error', or 'info'
+ * @param {string} elementId
+ * @param {string} message
+ * @param {string} type 
  */
 function showStatus(elementId, message, type) {
   const element = document.getElementById(elementId);
@@ -573,15 +545,14 @@ function showStatus(elementId, message, type) {
 
 /**
  * Preview image before uploading to IPFS
- * @param {string} inputId - ID of file input element
- * @param {string} previewId - ID of img element for preview
+ * @param {string} inputId 
+ * @param {string} previewId 
  */
 function previewImage(inputId, previewId) {
   const input = document.getElementById(inputId);
   const preview = document.getElementById(previewId);
 
   if (input.files && input.files[0]) {
-    // Use FileReader to read file as data URL
     const reader = new FileReader();
     reader.onload = function (e) {
       preview.src = e.target.result;
@@ -595,8 +566,8 @@ function previewImage(inputId, previewId) {
 
 /**
  * Upload a file (image) to IPFS
- * @param {File} file - File object to upload
- * @returns {Promise<string>} - IPFS CID (Content Identifier)
+ * @param {File} file
+ * @returns {Promise<string>}
  */
 async function uploadFileToIPFS(file) {
   try {
@@ -609,8 +580,8 @@ async function uploadFileToIPFS(file) {
 
 /**
  * Upload JSON data to IPFS
- * @param {Object} data - JavaScript object to upload
- * @returns {Promise<string>} - IPFS CID (Content Identifier)
+ * @param {Object} data
+ * @returns {Promise<string>} 
  */
 async function uploadJSONToIPFS(data) {
   try {
@@ -624,13 +595,12 @@ async function uploadJSONToIPFS(data) {
 
 /**
  * Retrieve JSON data from IPFS using CID
- * @param {string} cid - IPFS Content Identifier
- * @returns {Promise<Object>} - Parsed JSON object
+ * @param {string} cid 
+ * @returns {Promise<Object>}
  */
 async function getFromIPFS(cid) {
   try {
     const chunks = [];
-    // IPFS returns data in chunks, so we need to collect them
     for await (const chunk of ipfs.cat(cid)) {
       chunks.push(chunk);
     }
@@ -653,8 +623,8 @@ async function getFromIPFS(cid) {
 
 /**
  * Generate URL to access IPFS image via HTTP gateway
- * @param {string} cid - IPFS Content Identifier
- * @returns {string} - Full URL to image
+ * @param {string} cid
+ * @returns {string}
  */
 function getIPFSImageURL(cid) {
   if (!cid) return "";
@@ -667,14 +637,13 @@ function getIPFSImageURL(cid) {
  * Initialize application when page loads
  * Sets up event listeners and loads saved registry
  */
-window.addEventListener("load", async () => { // Made function async for await restoreConnections()
+window.addEventListener("load", async () => { 
   log("MealDispatch loaded");
   loadIPFSRegistry();
 
 
   const restored = await restoreConnections();
   if (!restored) {
-    // If restoration failed or no data, prompt user for manual connection
     log('Click "INITIALIZE" to connect to Ganache and IPFS');
   }
 
