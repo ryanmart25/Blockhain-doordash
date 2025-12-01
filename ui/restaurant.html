@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MealDispatch - Restaurant Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+
+    <!-- IPFS HTTP Client library for decentralized storage -->
+    <script src="https://cdn.jsdelivr.net/npm/ipfs-http-client@60.0.1/dist/index.min.js"></script>
+
+    <!-- Link to external CSS stylesheet -->
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>
+          <span class="brand-meal"> Restaurant</span
+          ><span class="brand-meal">Portal</span>
+        </h1>
+        <p>Decetralized Food Delivery - Store Management</p>
+      </div>
+      <!-- tab navigation section, same as the others-->
+      <!-- copy pasted from other file-->
+      <div class="tabs">
+        <button class="tab" onclick="window.location.href='index.html'">Home</button>
+        <button class="tab active" onclick="openTab(event, 'addStore')">
+          Add Stores
+        </button>
+        <button class="tab" onclick="openTab(event, 'registerStore')">
+          Register Stores
+        </button>
+        <button class="tab" onclick="openTab(event, 'storeManagement')">
+          Store Management
+        </button>
+      </div>
+      <div id="addStore" class="tab-content active">
+        <div class="section">
+          <h2>Add/Modify Stores</h2>
+
+          <div class="info-box">
+            <strong>Note:</strong> Create and modify store information saved on
+            IPFS. Stores must then be registered on the blockchain to be visible
+            to customers.
+          </div>
+
+          <div class="form-group">
+            <label>Select Existing Store:</label>
+            <select id="existingStoreSelect" onchange="loadExistingStore()">
+              <option value="">-- Create New Store --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Store Name:</label>
+            <input
+              type="text"
+              id="addStoreName"
+              placeholder="e.g., Pizza Palace"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Store Description:</label>
+            <textarea
+              id="addStoreDescription"
+              rows="3"
+              placeholder="Describe your restaurant..."
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Store Street Address:</label>
+            <input
+              type="text"
+              id="addStoreStreetAddress"
+              placeholder="e.g., 123 Main St, Rocklin, CA 95677"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Store Logo:</label>
+            <input
+              type="file"
+              id="addStoreLogo"
+              accept="image/*"
+              onchange="previewImage('addStoreLogo', 'storeLogoPreview')"
+            />
+            <img
+              id="storeLogoPreview"
+              class="image-preview"
+              style="display: none"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Store Picture:</label>
+            <input
+              type="file"
+              id="addStorePicture"
+              accept="image/*"
+              onchange="previewImage('addStorePicture', 'storePicturePreview')"
+            />
+            <img
+              id="storePicturePreview"
+              class="image-preview"
+              style="display: none"
+            />
+          </div>
+
+          <h3>Menu Items</h3>
+          <div id="menuItemsContainer"></div>
+          <button onclick="addMenuItem()">+ Add Menu Item</button>
+
+          <div style="margin-top: 20px">
+            <button onclick="saveStoreToIPFS()">Save Store to IPFS</button>
+            <button class="btn-danger" onclick="removeStore()">
+              Remove Selected Store
+            </button>
+          </div>
+
+          <div id="addStoreStatus"></div>
+        </div>
+      </div>
+      <div id="registerStore" class="tab-content">
+        <div class="section">
+          <h2>Register Stores on Blockchain</h2>
+
+          <div class="info-box">
+            <strong> Important:</strong> Select a store from IPFS and an account
+            to register it.
+          </div>
+
+          <div class="form-group">
+            <label>Select Store from IPFS:</label>
+            <select id="registerStoreSelect">
+              <option value="">-- Select a Store --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Select Account:</label>
+            <select id="registerStoreAccount"></select>
+          </div>
+
+          <button onclick="registerStoreOnBlockchain()">Register Store</button>
+          <div id="registerStoreStatus"></div>
+
+          <h3>Registered Stores</h3>
+          <div id="registeredStoresList"></div>
+        </div>
+      </div>
+      <div id="storeManagement" class="tab-content">
+        <div class="section">
+          <h2>Store Management</h2>
+
+          <div class="form-group">
+            <label>Select Your Store:</label>
+            <select id="storeManageSelect" onchange="loadStoreInfo()">
+              <option value="">-- Select Store --</option>
+            </select>
+          </div>
+
+          <div id="storeInfoDisplay"></div>
+
+          <button onclick="loadStoreOrders()">All Orders</button>
+          <button onclick="filterStoreOrders(0)">New</button>
+          <button onclick="filterStoreOrders(1)">Preparing</button>
+          <button onclick="filterStoreOrders(2)">Ready</button>
+
+          <div id="storeOrdersList"></div>
+
+          <h3>Manage Order</h3>
+          <div class="form-group">
+            <label>Order ID:</label>
+            <input type="number" id="manageOrderId" placeholder="Order ID" />
+          </div>
+          <button onclick="acceptOrder()">Accept</button>
+          <button onclick="markReady()">Mark Ready</button>
+          <button onclick="cancelOrder()">Cancel</button>
+          <div id="storeActionStatus"></div>
+        </div>
+      </div>
+    </div>
+    <script src="app.js"></script>
+    <script src="functions.js"></script>
+  </body>
+</html>

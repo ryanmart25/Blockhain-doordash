@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meal Dispatch - Customer Portal</title>
+    
+    <!-- Link to external CSS stylesheet as per your request -->
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Web3.js library for Ethereum blockchain interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+
+    <!-- IPFS HTTP Client library for decentralized storage -->
+    <script src="https://cdn.jsdelivr.net/npm/ipfs-http-client@60.0.1/dist/index.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>
+          <span class="brand-meal">Customer</span
+          ><span class="brand-dispatch">Portal</span>
+        </h1>
+        <p>Decentralized Food Delivery - Order Food</p>
+      </div>
+
+      <!-- Tab Navigation -->
+      <!-- Assuming openTab is defined in app.js/functions.js or you have a different mechanism -->
+      <div class="tabs">
+        <button class="tab" onclick="window.location.href='index.html'">Home</button>
+        <button class="tab active" onclick="openTab(event, 'addCustomer')">
+          Add Customer
+        </button>
+        <button class="tab" onclick="openTab(event, 'customer')">
+          Order Food
+        </button>
+      </div>
+
+      <!-- 1. Add Customer Tab -->
+      <div id="addCustomer" class="tab-content active">
+        <div class="section">
+          <h2>Add Customer Profile</h2>
+          <div class="form-group">
+            <label>Select Existing Customer:</label>
+            <select
+              id="existingCustomerSelect"
+              onchange="loadExistingCustomer()"
+            >
+              <option value="">-- Create New --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Name:</label>
+            <input type="text" id="addCustomerName" placeholder="Your name" />
+          </div>
+          <div class="form-group">
+            <label>Delivery Address:</label>
+            <textarea
+              id="addCustomerAddress"
+              rows="3"
+              placeholder="Your address"
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Phone:</label>
+            <input type="text" id="addCustomerPhone" placeholder="Phone" />
+          </div>
+
+          <div class="form-group">
+            <label>Profile Picture:</label>
+            <input
+              type="file"
+              id="addCustomerPicture"
+              accept="image/*"
+              onchange="previewImage('addCustomerPicture', 'customerPicturePreview')"
+            />
+            <img
+              id="customerPicturePreview"
+              class="image-preview"
+              style="display: none"
+            />
+          </div>
+
+          <button onclick="saveCustomerToIPFS()">Save Profile</button>
+          <button class="btn-danger ml-4" onclick="removeCustomer()">
+            Remove
+          </button>
+          <div id="addCustomerStatus"></div>
+        </div>
+      </div>
+
+      <!-- 2. Order Food Tab (Updated with button functionality) -->
+      <div id="customer" class="tab-content">
+        <div class="section">
+          <h2>🛒 Order Food</h2>
+
+          <!-- Dropdown to select customer profile by name -->
+          <div class="form-group">
+            <label>Select Your Name:</label>
+            <select id="customerNameSelect" onchange="loadCustomerByName()"></select>
+          </div>
+
+          <!-- Hidden section: appears when customer needs to link their Ethereum account -->
+          <div id="customerAccountSelectDiv" class="form-group hidden">
+            <label>Select Account to Link:</label>
+            <select id="customerAccountSelect"></select>
+            <button onclick="linkCustomerAccount()">Link Account</button>
+          </div>
+
+          <!-- Display selected customer profile information -->
+          <div id="customerProfileDisplay"></div>
+
+          <!-- Button to load available restaurants for ordering (Replaces Select Store dropdown) -->
+          <button onclick="loadAvailableStoresForCustomer()">Load Restaurants</button>
+          <div id="availableStoresDisplay"></div>
+
+          <!-- Hidden section: appears when store is selected to show menu and cart -->
+          <div id="selectedStoreMenu" class="hidden">
+            <h3>Menu</h3>
+            <div id="menuDisplay"></div>
+
+            <!-- Shopping cart display section -->
+            <h3>Your Cart</h3>
+            <div id="cartItems"></div>
+            <div id="cartSummary" class="total-summary hidden"></div>
+
+            <!-- Tip input fields for restaurant and delivery driver -->
+            <h3>Tips (Optional)</h3>
+            <div class="form-group">
+              <label>Food Tip (ETH):</label>
+              <input type="number" id="foodTip" value="0" step="0.001" oninput="updateCartDisplay()">
+            </div>
+            <div class="form-group">
+              <label>Delivery Tip (ETH):</label>
+              <input type="number" id="deliveryTip" value="0" step="0.001" oninput="updateCartDisplay()">
+            </div>
+            
+
+            <!-- Button to place order on blockchain -->
+            <button onclick="placeOrder()">🛒 Place Order</button>
+            <div id="orderStatus"></div>
+          </div>
+
+          <!-- Display customer's order history with auto-refresh -->
+          <h3>My Orders (Auto-refreshing)</h3>
+          <div id="customerOrdersList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Application Logic Scripts -->
+    <script src="app.js"></script>
+    <script src="functions.js"></script>
+  </body>
+</html>
